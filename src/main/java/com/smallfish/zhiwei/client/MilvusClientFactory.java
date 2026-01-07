@@ -3,6 +3,7 @@ package com.smallfish.zhiwei.client;
 import cn.hutool.core.util.StrUtil;
 import com.smallfish.zhiwei.config.MilvusProperties;
 import com.smallfish.zhiwei.common.constant.MilvusConstants;
+import com.smallfish.zhiwei.entity.BizKnowledge;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.DataType;
 import io.milvus.grpc.DescribeCollectionResponse;
@@ -125,25 +126,25 @@ public class MilvusClientFactory {
     private void createBizCollection(MilvusServiceClient client) {
         // 定义字段
         final FieldType id = FieldType.newBuilder()
-                .withName("id")
+                .withName(BizKnowledge.FIELD_ID)
                 .withDataType(DataType.VarChar)
                 .withMaxLength(MilvusConstants.ID_MAX_LENGTH)
                 .withPrimaryKey(true)
                 .build();
         final FieldType vector = FieldType.newBuilder()
-                .withName("vector")
+                .withName(BizKnowledge.FIELD_VECTOR)
                 .withDataType(DataType.FloatVector)
                 .withDimension(MilvusConstants.VECTOR_DIM) // 向量字段的维度
                 .withDescription("相似度计算")
                 .build();
         final FieldType content = FieldType.newBuilder()
-                .withName("content")
+                .withName(BizKnowledge.FIELD_CONTENT)
                 .withDataType(DataType.VarChar)
                 .withMaxLength(MilvusConstants.CONTENT_MAX_LENGTH)
                 .withDescription("用户输入的原文")
                 .build();
         final FieldType metadata = FieldType.newBuilder()
-                .withName("metadata")
+                .withName(BizKnowledge.FIELD_METADATA)
                 .withDataType(DataType.JSON)
                 .withDescription("过滤与溯源")
                 .build();
@@ -178,7 +179,7 @@ public class MilvusClientFactory {
         // 为 vector 字段创建索引（FloatVector 使用 IVF_FLAT 和 L2 距离）
         final CreateIndexParam vectorIndexParam = CreateIndexParam.newBuilder()
                 .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
-                .withFieldName("vector")
+                .withFieldName(BizKnowledge.FIELD_VECTOR)
                 .withIndexType(IndexType.IVF_FLAT) // 倒排文件索引 整个向量空间切分成许多个“聚类单元
                 .withMetricType(MetricType.L2) // l2 欧式距离  计算两个点在多维空间中的直线距离。距离越小，相似度越高。
                 .withExtraParam("{\"nlist\":1024}") // nlist 将数据分成多少个桶 nlist ≈ 4 * sqrt(N)

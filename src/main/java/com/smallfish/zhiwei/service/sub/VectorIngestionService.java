@@ -7,8 +7,10 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.smallfish.zhiwei.common.constant.MilvusConstants;
 import com.smallfish.zhiwei.dto.DocumentChunk;
+import com.smallfish.zhiwei.entity.BizKnowledge;
 import com.smallfish.zhiwei.service.DocumentChunkService;
 import com.smallfish.zhiwei.service.EmbeddingService;
+import com.smallfish.zhiwei.tool.MilvusEntityConverter;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.MutationResult;
 import io.milvus.param.R;
@@ -75,62 +77,47 @@ public class VectorIngestionService {
         final List<List<Float>> vectors = embeddingService.generateEmbedding(chunkTexts);
 
         // 3. 构建当前批次的数据
-        List<String> ids = new ArrayList<>();
-        List<String> contents = new ArrayList<>();
-        List<String> metadatas = new ArrayList<>(); // 这里假设 Milvus schema 中 metadata 是 VarChar 或者 SDK 支持 String 形式的 JSON
-
+        List<BizKnowledge> entities = new ArrayList<>();
         for (int j = 0; j < batchChunks.size(); j++) {
             DocumentChunk chunk = batchChunks.get(j);
-
             // ID 生成逻辑
             String uniqueKey = filename + "_" + chunk.getChunkIndex();
             String id = UUID.nameUUIDFromBytes(uniqueKey.getBytes(StandardCharsets.UTF_8)).toString();
 
-            // 构建 Metadata JSON
-            Map<String,Object> metaMap = new HashMap<>();
-            metaMap.put("filename",filename);
-            metaMap.put("chunkIndex",chunk.getChunkIndex());
-            metaMap.put("title",chunk.getTitle());
-
-            try {
-                metadatas.add(objectMapper.writeValueAsString(metaMap));
-            } catch (JsonProcessingException e) {
-                log.error("Metadata JSON 序列化失败", e);
-                metadatas.add("{}");
+            // 构建 Gson JsonObject
+            JsonObject metaJson = new JsonObject();
+            metaJson.addProperty("filename", filename);
+            metaJson.addProperty("chunkIndex", chunk.getChunkIndex());
+            // 处理可能为 null 的 title
+            if (chunk.getTitle() != null) {
+                metaJson.addProperty("title", chunk.getTitle());
+            } else {
+                metaJson.addProperty("title", "");
             }
 
-            ids.add(id);
-            contents.add(chunk.getContent());
+            BizKnowledge entity = BizKnowledge.builder()
+                    .id(id)
+                    .content(chunk.getContent())
+                    .vector(vectors.get(j))
+                    .metadata(metaJson) // 设置 JsonObject
+                    .build();
+            entities.add(entity);
         }
 
         // 4. 插入这一小批
-        insertBatch(ids, contents, vectors, metadatas);
+        insertBatch(entities);
 
     }
 
 
     /**
-     *  批量插入 milvus
-     * @param ids      id
-     * @param contents 内容
-     * @param vectors 向量值
-     * @param metadatas 元数据
+     * 批量插入 milvus
+     * @param entities 向量数据实体类列表
      */
-    private void insertBatch(List<String> ids, List<String> contents, List<List<Float>> vectors, List<String> metadatas) {
-        List<JsonObject> metadataObjects = new ArrayList<>();
-        Gson gson = new Gson();
-        for (String jsonStr : metadatas) {
-            // 把字符串转成 Gson 的 JsonObject 对象
-            metadataObjects.add(gson.fromJson(jsonStr, JsonObject.class));
-        }
+    private void insertBatch(List<BizKnowledge> entities) {
         final InsertParam insertParam = InsertParam.newBuilder()
                 .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
-                .withFields(List.of(
-                        new InsertParam.Field("id", ids),
-                        new InsertParam.Field("content", contents),
-                        new InsertParam.Field("vector", vectors),
-                        new InsertParam.Field("metadata", metadataObjects) // 注意：这里 Milvus SDK 可能需要 List<JsonObject> 或 List<String>，视版本而定
-                ))
+                .withFields(MilvusEntityConverter.toInsertFields(entities))
                 .build();
         final R<MutationResult> response = milvusClient.insert(insertParam);
 
