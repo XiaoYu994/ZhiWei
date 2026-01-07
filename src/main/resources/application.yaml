@@ -24,9 +24,13 @@ spring:
       chat:
         options:
           timeout: 180000  # 超时时间180秒（3分钟）
-      retry:
-        max-attempts: 3  # 最大重试次数
-        backoff:
-          initial-interval: 2000  # 初始重试间隔2秒
-          multiplier: 2  # 重试间隔倍数
-          max-interval: 10000  # 最大重试间隔10秒
+      embedding:
+        options:
+          model: text-embedding-v4
+    retry:
+      max-attempts: 3  # 最大重试次数
+      backoff:
+        initial-interval: 2000  # 初始重试间隔2秒
+        multiplier: 2  # 重试间隔倍数
+        max-interval: 10000  # 最大重试间隔10秒
+
