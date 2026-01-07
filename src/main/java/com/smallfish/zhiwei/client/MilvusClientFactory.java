@@ -2,9 +2,8 @@ package com.smallfish.zhiwei.client;
 
 import cn.hutool.core.util.StrUtil;
 import com.smallfish.zhiwei.config.MilvusProperties;
-import com.smallfish.zhiwei.constant.MilvusConstants;
+import com.smallfish.zhiwei.common.constant.MilvusConstants;
 import io.milvus.client.MilvusServiceClient;
-import io.milvus.common.constant.MilvusClientConstant;
 import io.milvus.grpc.DataType;
 import io.milvus.grpc.DescribeCollectionResponse;
 import io.milvus.param.*;

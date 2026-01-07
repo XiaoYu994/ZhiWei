@@ -1,4 +1,4 @@
-package com.smallfish.zhiwei.constant;
+package com.smallfish.zhiwei.common.constant;
 
 /*
 *  milvus 向量数据库常量类
