@@ -20,6 +20,14 @@ document:
     max-size: 800  # 每个分片最大字符数
     overlap: 100   # 分片之间的重叠字符数
 
+# 文件上传配置
+file:
+  upload:
+    path: ./uploads
+    allowed-extensions:
+      - txt
+      - md
+
 
 spring:
   application:
