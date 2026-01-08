@@ -27,7 +27,10 @@ file:
     allowed-extensions:
       - txt
       - md
-
+      -
+# RAG 配置
+rag:
+  limit: 10  # 检索返回的最相似文档数量
 
 spring:
   application:
