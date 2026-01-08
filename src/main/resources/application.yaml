@@ -38,7 +38,8 @@ spring:
       api-key: ${DASHSCOPE_API_KEY}  # 从环境变量读取或使用默认值
       chat:
         options:
-          timeout: 180000  # 超时时间180秒（3分钟）
+          model: qwen3-max
+          timeout: 180000  # 连接超时时间 3分钟
       embedding:
         options:
           model: text-embedding-v4
