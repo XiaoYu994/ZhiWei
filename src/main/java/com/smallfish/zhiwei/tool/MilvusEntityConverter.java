@@ -17,12 +17,14 @@ public class MilvusEntityConverter {
         List<String> contents = entities.stream().map(BizKnowledge::getContent).toList();
         List<List<Float>> vectors = entities.stream().map(BizKnowledge::getVector).toList();
         List<JsonObject> metadatas = entities.stream().map(BizKnowledge::getMetadata).toList();
+        List<String> source = entities.stream().map(BizKnowledge::getSource).toList();
 
         List<InsertParam.Field> fields = new ArrayList<>();
         fields.add(new InsertParam.Field(BizKnowledge.FIELD_ID, ids));
         fields.add(new InsertParam.Field(BizKnowledge.FIELD_CONTENT, contents));
         fields.add(new InsertParam.Field(BizKnowledge.FIELD_VECTOR, vectors));
         fields.add(new InsertParam.Field(BizKnowledge.FIELD_METADATA, metadatas));
+        fields.add(new InsertParam.Field(BizKnowledge.FIELD_SOURCE, source));
 
         return fields;
     }

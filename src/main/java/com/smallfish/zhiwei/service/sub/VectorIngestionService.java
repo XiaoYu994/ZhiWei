@@ -92,13 +92,14 @@ public class VectorIngestionService {
                     String id = UUID.nameUUIDFromBytes(uniqueKey.getBytes(StandardCharsets.UTF_8)).toString();
 
                     // 构建 元数据
-                    DocMetadataDTO metaDto = buildMetadataDTO(sourcePath, originalFilename, chunk, totalChunks);
+                    DocMetadataDTO metaDto = buildMetadataDTO(originalFilename, chunk, totalChunks);
                     JsonObject metaJson = gson.toJsonTree(metaDto).getAsJsonObject();
                     BizKnowledge entity = BizKnowledge.builder()
                             .id(id)
                             .content(chunk.getContent())
                             .vector(vectors.get(j))
                             .metadata(metaJson) // 设置 JsonObject
+                            .source(sourcePath)
                             .build();
                     entities.add(entity);
                 }
@@ -116,7 +117,7 @@ public class VectorIngestionService {
     /**
      * 构建元数据
      */
-    private DocMetadataDTO buildMetadataDTO(String sourcePath, String originalFilename, DocumentChunk chunk, int totalChunks) {
+    private DocMetadataDTO buildMetadataDTO( String originalFilename, DocumentChunk chunk, int totalChunks) {
         // 文件扩展名解析
         String extension = "";
         int dotIndex = originalFilename.lastIndexOf('.');
@@ -129,7 +130,6 @@ public class VectorIngestionService {
                 ? chunk.getTitle()
                 : null;
         return DocMetadataDTO.builder()
-                .source(sourcePath)
                 .fileName(originalFilename)
                 .extension(extension)
                 .chunkIndex(chunk.getChunkIndex())
@@ -165,10 +165,8 @@ public class VectorIngestionService {
             milvusClient.loadCollection(LoadCollectionParam.newBuilder()
                     .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
                     .build());
-            // 构建删除表达式：metadata["filename"] == "xxx"
-            // 注意：这里要和你的 metadata 字段名保持一致
-            String expr = String.format("metadata[\"_source\"] == \"%s\"", sourcePath);
-
+            // (标量索引过滤，快)
+            String expr = String.format("%s == \"%s\"", BizKnowledge.FIELD_SOURCE, sourcePath);
             DeleteParam deleteParam = DeleteParam.newBuilder()
                     .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
                     .withExpr(expr)

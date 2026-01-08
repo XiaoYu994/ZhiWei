@@ -29,6 +29,11 @@ public class MilvusConstants {
      */
     public static final int CONTENT_MAX_LENGTH = 8192;
 
+    /*
+    *  Source字段最大长度
+    * */
+    public static final int SOURCE_MAX_LENGTH = 1024;
+
     /**
      * 默认分片数
      */

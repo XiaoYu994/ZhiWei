@@ -16,13 +16,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class DocMetadataDTO {
 
-    // 使用 @SerializedName 指定存入 Milvus 的 JSON 字段名
-    /*
-    * 统一路径标识
-    * */
-    @SerializedName("_source")
-    private String source;
-
     /*
     *  原始文件名
     * */

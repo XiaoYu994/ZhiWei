@@ -45,7 +45,7 @@ public class MilvusClientFactory {
                    .withPort(milvusProperties.getPort())
                    .withConnectTimeout(milvusProperties.getTimeout(), TimeUnit.MILLISECONDS);
             // 开启了鉴权信息就要 加入账号和密码
-            if(StrUtil.hasBlank(milvusProperties.getUsername())) {
+            if(!StrUtil.hasBlank(milvusProperties.getUsername())) {
                 builder.withAuthorization(milvusProperties.getUsername(), milvusProperties.getPassword());
             }
             ConnectParam connectParam = builder.build();
@@ -54,8 +54,8 @@ public class MilvusClientFactory {
 
             // 2. 验证是否存活
             R<Boolean> health = client.hasCollection(HasCollectionParam.newBuilder()
-                                .withCollectionName("test")
-                                .build());
+                    .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
+                    .build());
             if(health.getStatus() != R.Status.Success.getCode()) {
                 throw new RuntimeException("Milvus 连接握手失败: " + health.getMessage());
             }
@@ -110,7 +110,7 @@ public class MilvusClientFactory {
         final DescribeCollectionResponse collectionInfo  = response.getData();
         // 简单校验：检查核心字段是否存在
         boolean hasVectorField = collectionInfo.getSchema().getFieldsList().stream()
-                .anyMatch(field -> field.getName().equals("vector"));
+                .anyMatch(field -> field.getName().equals(BizKnowledge.FIELD_VECTOR));
 
         if (!hasVectorField) {
             throw new RuntimeException("严重错误：现有 Collection 缺少 'vector' 字段！请检查数据库或执行迁移。");
@@ -148,6 +148,13 @@ public class MilvusClientFactory {
                 .withDataType(DataType.JSON)
                 .withDescription("过滤与溯源")
                 .build();
+
+        final FieldType source = FieldType.newBuilder()
+                .withName(BizKnowledge.FIELD_SOURCE)
+                .withDataType(DataType.VarChar)
+                .withMaxLength(MilvusConstants.SOURCE_MAX_LENGTH) // 路径长度
+                .withDescription("源文件标识，用于幂等性删除")
+                .build();
         // 创建 collection schema
         final CollectionSchemaParam schemaParam = CollectionSchemaParam.newBuilder()
                 .withEnableDynamicField(false)
@@ -155,6 +162,7 @@ public class MilvusClientFactory {
                 .addFieldType(vector)
                 .addFieldType(content)
                 .addFieldType(metadata)
+                .addFieldType(source)
                 .build();
 
         // 创建 collection
@@ -185,10 +193,19 @@ public class MilvusClientFactory {
                 .withExtraParam("{\"nlist\":1024}") // nlist 将数据分成多少个桶 nlist ≈ 4 * sqrt(N)
                 .withSyncMode(Boolean.FALSE)
                 .build();
-        final R<RpcStatus> response = client.createIndex(vectorIndexParam);
+        client.createIndex(vectorIndexParam);
+        // 4. 【新增】为 source 字段创建倒排索引 (Inverted Index)
+        // 这对于字符串的精确匹配（source == "xxx"）是必须的优化
+        final CreateIndexParam sourceIndexParam = CreateIndexParam.newBuilder()
+                .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
+                .withFieldName(BizKnowledge.FIELD_SOURCE            )
+                .withIndexName("idx_source") // 给索引取个名
+                .withIndexType(IndexType.INVERTED) // 倒排索引类型
+                .build();
+        final R<RpcStatus> response = client.createIndex(sourceIndexParam);
         if(response.getStatus() != R.Status.Success.getCode()) {
-            throw new RuntimeException("创建 vector 索引失败: " + response.getMessage());
+            throw new RuntimeException("创建 source 索引失败: " + response.getMessage());
         }
-        log.info("成功为 vector 字段创建索引");
+        log.info("成功创建索引: vector(IVF_FLAT), source(INVERTED)");
     }
 }

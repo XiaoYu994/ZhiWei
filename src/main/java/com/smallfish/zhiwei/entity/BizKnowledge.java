@@ -22,6 +22,8 @@ public class BizKnowledge {
     public static final String FIELD_CONTENT = "content";
     public static final String FIELD_VECTOR = "vector";
     public static final String FIELD_METADATA = "metadata";
+    public static final String FIELD_SOURCE = "source";
+
 
     /*
     *  ID 通过文件名和文件分片索引构建出唯一的 UUID
@@ -48,4 +50,9 @@ public class BizKnowledge {
                 title  标题 如果有的话
     * */
     private JsonObject metadata; // 存储 JSON 字符串
+
+    /*
+    *  统一路径标识 用于高效删除
+    * */
+    private String source;
 }
