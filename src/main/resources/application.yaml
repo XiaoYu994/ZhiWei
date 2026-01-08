@@ -43,6 +43,9 @@ spring:
         options:
           model: qwen3-max
           timeout: 180000  # 连接超时时间 3分钟
+          temperature: 0.7       # 温度 控制模型回答的发散性和随机性
+          top-p: 0.9             # 词汇广度 累计概率达到 90% 的词里选
+          max-tokens: 2000       # 最长 token 大约能输出 1000 到 1500 个汉字 限制输出上限
       embedding:
         options:
           model: text-embedding-v4

@@ -1,5 +1,7 @@
 package com.smallfish.zhiwei.config;
 
+import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +18,16 @@ public class DashScopeConfig {
     @Value("${spring.ai.dashscope.chat.options.timeout:180000}")
     private long timeout;
 
+    /**
+     * 配置聊天记忆存储
+     */
+    @Bean
+    public ChatMemory chatMemory() {
+        // maxMessages(10) 表示只保留最近 10 条消息
+        return MessageWindowChatMemory.builder()
+                .maxMessages(10)
+                .build();
+    }
     /**
      * 配置 RestClient.Builder，设置超时时间
      * Spring AI 会自动使用这个 Bean

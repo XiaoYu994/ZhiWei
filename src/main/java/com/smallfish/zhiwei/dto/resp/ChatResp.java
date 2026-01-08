@@ -21,4 +21,9 @@ public class ChatResp {
     *  引用了哪些文件
     * */
     private List<String> sources;
+
+    /*
+    *  会话 ID
+    * */
+    private String  conversationId;
 }
