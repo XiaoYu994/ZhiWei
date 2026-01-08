@@ -44,7 +44,7 @@ public class BizKnowledge {
                 _file_name: 原始文件名
                 _extension: 后缀
                 chunkIndex 分片索引
-                totalChunks 当前分片批次
+                totalChunks 分片序号
                 title  标题 如果有的话
     * */
     private JsonObject metadata; // 存储 JSON 字符串

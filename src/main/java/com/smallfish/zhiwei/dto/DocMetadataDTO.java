@@ -17,18 +17,36 @@ import lombok.NoArgsConstructor;
 public class DocMetadataDTO {
 
     // 使用 @SerializedName 指定存入 Milvus 的 JSON 字段名
+    /*
+    * 统一路径标识
+    * */
     @SerializedName("_source")
     private String source;
 
+    /*
+    *  原始文件名
+    * */
     @SerializedName("_file_name")
     private String fileName;
 
+    /*
+    *  后缀
+    * */
     @SerializedName("_extension")
     private String extension;
 
+    /*
+    *  分片序号
+    * */
     private Integer chunkIndex;
 
+    /*
+    *  总分片大小
+    * */
     private Integer totalChunks;
 
+    /*
+    *  标题
+    * */
     private String title;
 }
