@@ -1,11 +1,10 @@
 package com.smallfish.zhiwei.service.sub;
 
 import cn.hutool.core.collection.CollectionUtil;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.smallfish.zhiwei.common.constant.MilvusConstants;
+import com.smallfish.zhiwei.dto.DocMetadataDTO;
 import com.smallfish.zhiwei.dto.DocumentChunk;
 import com.smallfish.zhiwei.entity.BizKnowledge;
 import com.smallfish.zhiwei.service.DocumentChunkService;
@@ -14,12 +13,14 @@ import com.smallfish.zhiwei.tool.MilvusEntityConverter;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.MutationResult;
 import io.milvus.param.R;
+import io.milvus.param.collection.LoadCollectionParam;
 import io.milvus.param.dml.DeleteParam;
 import io.milvus.param.dml.InsertParam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
@@ -35,7 +36,7 @@ public class VectorIngestionService {
     private final DocumentChunkService chunkService;
     private final EmbeddingService embeddingService;
     private final MilvusServiceClient milvusClient;
-    private final ObjectMapper objectMapper;
+    private final Gson gson = new Gson(); // 复用 Gson 对象
 
     // 批处理大小 通义千问 只支持 10 段文本
     private static final int BATCHSIZE = 10;
@@ -47,8 +48,10 @@ public class VectorIngestionService {
      * @param content 文件内容
      */
     public void ingest(String filename, String content) {
+        // 统一处理格式 上传的文件 filename 只是文件名，本地扫描是全路径
+        String sourcePath = filename.replace(File.separator, "/");
         // 1. 先删除该文件的旧数据！(这是原项目的关键逻辑)
-        deleteExistingData(filename);
+        deleteExistingData(sourcePath);
         log.info("开始处理文档: {}, 长度: {}", filename, content.length());
 
         // 2. 切片
@@ -59,56 +62,81 @@ public class VectorIngestionService {
         }
 
         // 3. 批量入库
-        for (int i = 0; i < chunks.size(); i += BATCHSIZE) {
-            int end = Math.min(i + BATCHSIZE, chunks.size());
-            List<DocumentChunk> batchChunks = chunks.subList(i, end);
-            processBatch(filename, batchChunks);
-        }
+        processBatch(sourcePath, filename, chunks);
 
-        log.debug("文档入库完成: {}", filename);
+
+        log.debug("文档入库完成: {}", sourcePath);
     }
 
-    private void processBatch(String filename, List<DocumentChunk> batchChunks) {
-        // 1. 提取当前批次的文本
-        List<String> chunkTexts = batchChunks.stream()
-                .map(DocumentChunk::getContent)
-                .toList();
-        // 2. 向量化
-        final List<List<Float>> vectors = embeddingService.generateEmbedding(chunkTexts);
+    private void processBatch(String sourcePath, String originalFilename, List<DocumentChunk> chunks) {
 
-        // 3. 构建当前批次的数据
-        List<BizKnowledge> entities = new ArrayList<>();
-        for (int j = 0; j < batchChunks.size(); j++) {
-            DocumentChunk chunk = batchChunks.get(j);
-            // ID 生成逻辑
-            String uniqueKey = filename + "_" + chunk.getChunkIndex();
-            String id = UUID.nameUUIDFromBytes(uniqueKey.getBytes(StandardCharsets.UTF_8)).toString();
+        int totalChunks = chunks.size();
+        for (int i = 0; i < totalChunks; i+= BATCHSIZE) {
+            int end = Math.min(i + BATCHSIZE, totalChunks);
+            List<DocumentChunk> subList = chunks.subList(i, end);
+            try {
+                // 1. 提取当前批次的文本
+                List<String> chunkTexts = subList.stream()
+                        .map(DocumentChunk::getContent)
+                        .toList();
+                // 2. 向量化
+                final List<List<Float>> vectors = embeddingService.generateEmbedding(chunkTexts);
 
-            // 构建 Gson JsonObject
-            JsonObject metaJson = new JsonObject();
-            metaJson.addProperty("filename", filename);
-            metaJson.addProperty("chunkIndex", chunk.getChunkIndex());
-            // 处理可能为 null 的 title
-            if (chunk.getTitle() != null) {
-                metaJson.addProperty("title", chunk.getTitle());
-            } else {
-                metaJson.addProperty("title", "");
+                // 3. 构建当前批次的数据
+                List<BizKnowledge> entities = new ArrayList<>();
+                for (int j = 0; j < subList.size(); j++) {
+
+                    DocumentChunk chunk = subList.get(j);
+                    // ID 生成逻辑
+                    String uniqueKey = sourcePath + "_" + chunk.getChunkIndex();
+                    String id = UUID.nameUUIDFromBytes(uniqueKey.getBytes(StandardCharsets.UTF_8)).toString();
+
+                    // 构建 元数据
+                    DocMetadataDTO metaDto = buildMetadataDTO(sourcePath, originalFilename, chunk, totalChunks);
+                    JsonObject metaJson = gson.toJsonTree(metaDto).getAsJsonObject();
+                    BizKnowledge entity = BizKnowledge.builder()
+                            .id(id)
+                            .content(chunk.getContent())
+                            .vector(vectors.get(j))
+                            .metadata(metaJson) // 设置 JsonObject
+                            .build();
+                    entities.add(entity);
+                }
+                // 4. 插入这一小批
+                insertBatch(entities);
+            } catch (Exception e) {
+                log.error("批次处理失败 [{} - {}]: {}", i, end, e.getMessage());
+                // 这里可以选择 throw 继续抛出，或者记录到错误表
+                throw new RuntimeException("向量处理失败", e);
             }
-
-            BizKnowledge entity = BizKnowledge.builder()
-                    .id(id)
-                    .content(chunk.getContent())
-                    .vector(vectors.get(j))
-                    .metadata(metaJson) // 设置 JsonObject
-                    .build();
-            entities.add(entity);
         }
-
-        // 4. 插入这一小批
-        insertBatch(entities);
 
     }
 
+    /**
+     * 构建元数据
+     */
+    private DocMetadataDTO buildMetadataDTO(String sourcePath, String originalFilename, DocumentChunk chunk, int totalChunks) {
+        // 文件扩展名解析
+        String extension = "";
+        int dotIndex = originalFilename.lastIndexOf('.');
+        if (dotIndex > 0) {
+            extension = originalFilename.substring(dotIndex);
+        }
+
+        // 处理 title：如果是空字符串，强制转为 null，这样 Gson 就会忽略它
+        String validTitle = (chunk.getTitle() != null && !chunk.getTitle().isEmpty())
+                ? chunk.getTitle()
+                : null;
+        return DocMetadataDTO.builder()
+                .source(sourcePath)
+                .fileName(originalFilename)
+                .extension(extension)
+                .chunkIndex(chunk.getChunkIndex())
+                .totalChunks(totalChunks)
+                .title(validTitle)
+                .build();
+    }
 
     /**
      * 批量插入 milvus
@@ -132,19 +160,22 @@ public class VectorIngestionService {
     /**
      * 删除指定文件的所有旧数据
      */
-    private void deleteExistingData(String filename) {
+    private void deleteExistingData(String sourcePath) {
         try {
+            milvusClient.loadCollection(LoadCollectionParam.newBuilder()
+                    .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
+                    .build());
             // 构建删除表达式：metadata["filename"] == "xxx"
             // 注意：这里要和你的 metadata 字段名保持一致
-            String expr = String.format("metadata[\"filename\"] == \"%s\"", filename);
+            String expr = String.format("metadata[\"_source\"] == \"%s\"", sourcePath);
 
             DeleteParam deleteParam = DeleteParam.newBuilder()
                     .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
                     .withExpr(expr)
                     .build();
 
-            milvusClient.delete(deleteParam);
-            log.info("已清理文件旧数据: {}", filename);
+            final MutationResult response = milvusClient.delete(deleteParam).getData();
+            log.info("已清理文件旧数据: {}, 影响行数: {}", sourcePath, response.getDeleteCnt());
         } catch (Exception e) {
             log.warn("清理旧数据失败 (可能是首次上传): {}", e.getMessage());
         }

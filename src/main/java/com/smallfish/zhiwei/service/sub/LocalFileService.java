@@ -1,5 +1,7 @@
 package com.smallfish.zhiwei.service.sub;
 
+import com.smallfish.zhiwei.config.FileUploadConfig;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +19,9 @@ import java.util.List;
 @Service
 public class LocalFileService {
 
+    @Resource
+    private FileUploadConfig fileUploadConfig;
+
     public List<File> scanDirectory(String pathStr) {
         File directory = new File(pathStr);
         if (!directory.exists() || !directory.isDirectory()) {
@@ -26,7 +31,9 @@ public class LocalFileService {
         // 简单过滤 txt 和 md
         File[] files = directory.listFiles((dir, name) -> {
             String lowerName = name.toLowerCase();
-            return lowerName.endsWith(".txt") || lowerName.endsWith(".md");
+            // 使用配置中的扩展名列表进行过滤
+            return fileUploadConfig.getAllowedExtensions().stream()
+                    .anyMatch(ext -> lowerName.endsWith(ext.toLowerCase()));
         });
 
         if (files == null) return Collections.emptyList();

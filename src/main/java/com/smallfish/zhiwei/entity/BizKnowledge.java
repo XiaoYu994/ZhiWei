@@ -40,9 +40,12 @@ public class BizKnowledge {
 
     /*
     metadata 是给程序逻辑和用户溯源用的
-    *  元数据   filename: "Java开发手册.pdf"
-                chunkIndex: 2 分片索引编号
-                title:  标题 如果有的话
+    *  元数据   _source: 统一路径标识
+                _file_name: 原始文件名
+                _extension: 后缀
+                chunkIndex 分片索引
+                totalChunks 当前分片批次
+                title  标题 如果有的话
     * */
     private JsonObject metadata; // 存储 JSON 字符串
 }
