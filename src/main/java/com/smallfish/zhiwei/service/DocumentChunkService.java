@@ -105,10 +105,17 @@ public class DocumentChunkService {
         int pointer = 0;
         int chunkIndex = startChunkIndex;
         int contentLength = content.length();
+        int maxSize = chunkConfig.getMaxSize();
+        int overlap = chunkConfig.getOverlap();
+
+        // 边界保护：overlap 绝不能大于等于 maxSize，否则必然死循环
+        if (overlap >= maxSize) {
+            overlap = maxSize / 2;
+        }
 
         while (pointer < contentLength) {
             // 1. 确定当前分片的建议结束位置
-            int end = Math.min(pointer + chunkConfig.getMaxSize(), contentLength);
+            int end = Math.min(pointer + maxSize, contentLength);
 
             // 2. 尝试寻找最佳分割点（换行符 > 句号 > 逗号 > 强制截断）
             if (end < contentLength) {
@@ -136,47 +143,54 @@ public class DocumentChunkService {
             }
 
             // 5. 移动指针
-            if (end == contentLength) {
+            if (end >= contentLength) {
                 break;
             }
 
             // 6. 处理重叠 (Overlap)
             // 下一个分片的开始位置应该回退 overlap 个字符
-            pointer = end - chunkConfig.getOverlap();
-            // 防止死循环（如果 overlap 设置得比 maxSize 还大，或者回退后位置没变）
-            if (pointer < 0) pointer = 0;
-            // 简单的防死循环：如果回退导致 pointer 比上一次还小或相等，强制前进
-            // 实际场景通常简单地让 pointer = end (无重叠) 或 pointer = end - overlap
+            int nextPointer = end - overlap;
+            // 强制前进规则：
+            // 如果回退后的位置(nextPointer) 不比当前起点(pointer) 大，
+            // 说明这个分片太短了，overlap 把整个分片都盖住了，或者切分点就在起点附近。
+            // 此时必须强制向前移动，至少移动到 end 的位置（即放弃 overlap），或者移动 1 格。
+            if (nextPointer <= pointer) {
+                nextPointer = Math.max(pointer + 1, end);
+            }
+
+            pointer = nextPointer;
         }
 
         return chunks;
     }
 
     /**
-     * 寻找最佳分割点，避免切断句子
+     * 寻找最佳分割点，零拷贝优化版
      * 在 [start, limit] 范围内从后往前找
      */
     private int findBestSplitPoint(String content, int start, int limit) {
-        String window = content.substring(start, limit);
+        // 1. 优先级: 双换行
+        int idx = content.lastIndexOf("\n\n", limit);
+        if (idx >= start) return idx + 2;
+        // 2. 优先级: 单换行
+        idx = content.lastIndexOf("\n", limit);
+        if (idx >= start) return idx + 1;
 
-        // 优先级 1: 双换行 (段落结束)
-        int lastParagraph = window.lastIndexOf("\n\n");
-        if (lastParagraph != -1) return start + lastParagraph + 2;
+        // 3. 优先级: 句子结束符 (。！？)
+        // 这里的逻辑稍微复杂点，因为要找三个标点中最后出现的一个
+        int p1 = content.lastIndexOf("。", limit);
+        int p2 = content.lastIndexOf("！", limit);
+        int p3 = content.lastIndexOf("？", limit);
+        int maxP = Math.max(p1, Math.max(p2, p3));
+        if (maxP >= start) return maxP + 1;
 
-        // 优先级 2: 单换行
-        int lastLine = window.lastIndexOf("\n");
-        if (lastLine != -1) return start + lastLine + 1;
+        // 4. 优先级: 逗号分号
+        int c1 = content.lastIndexOf("，", limit);
+        int c2 = content.lastIndexOf("；", limit);
+        int maxC = Math.max(c1, c2);
+        if (maxC >= start) return maxC + 1;
 
-        // 优先级 3: 句子结束符
-        int lastSentence = Math.max(window.lastIndexOf("。"),
-                Math.max(window.lastIndexOf("！"), window.lastIndexOf("？")));
-        if (lastSentence != -1) return start + lastSentence + 1;
-
-        // 优先级 4: 逗号或分号
-        int lastComma = Math.max(window.lastIndexOf("，"), window.lastIndexOf("；"));
-        if (lastComma != -1) return start + lastComma + 1;
-
-        // 如果找不到任何分隔符，只能强制截断
+        // 没找到，强制截断
         return limit;
     }
 
