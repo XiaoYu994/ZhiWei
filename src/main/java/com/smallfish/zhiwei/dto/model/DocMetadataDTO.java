@@ -1,4 +1,4 @@
-package com.smallfish.zhiwei.dto;
+package com.smallfish.zhiwei.dto.model;
 
 import com.google.gson.annotations.SerializedName;
 import lombok.AllArgsConstructor;
@@ -31,11 +31,13 @@ public class DocMetadataDTO {
     /*
     *  分片序号
     * */
+    @SerializedName("chunk_index")
     private Integer chunkIndex;
 
     /*
     *  总分片大小
     * */
+    @SerializedName("total_chunks")
     private Integer totalChunks;
 
     /*

@@ -1,13 +1,13 @@
-package com.smallfish.zhiwei.entity;
+package com.smallfish.zhiwei.model;
 
 
-import com.google.gson.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 
 /*
@@ -49,7 +49,7 @@ public class BizKnowledge {
                 totalChunks 分片序号
                 title  标题 如果有的话
     * */
-    private JsonObject metadata; // 存储 JSON 字符串
+    private Map<String, Object> metadata; // 存储 JSON 字符串
 
     /*
     *  统一路径标识 用于高效删除

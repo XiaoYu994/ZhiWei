@@ -1,15 +1,14 @@
-package com.smallfish.zhiwei.service.sub;
+package com.smallfish.zhiwei.service.ingestion;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollectionUtil;
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import com.smallfish.zhiwei.common.constant.MilvusConstants;
-import com.smallfish.zhiwei.dto.DocMetadataDTO;
-import com.smallfish.zhiwei.dto.DocumentChunk;
-import com.smallfish.zhiwei.entity.BizKnowledge;
-import com.smallfish.zhiwei.service.DocumentChunkService;
-import com.smallfish.zhiwei.service.EmbeddingService;
-import com.smallfish.zhiwei.tool.MilvusEntityConverter;
+import com.smallfish.zhiwei.dto.model.DocMetadataDTO;
+import com.smallfish.zhiwei.dto.model.DocumentChunkDTO;
+import com.smallfish.zhiwei.model.BizKnowledge;
+import com.smallfish.zhiwei.service.base.EmbeddingService;
+import com.smallfish.zhiwei.utils.MilvusEntityConverter;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.MutationResult;
 import io.milvus.param.R;
@@ -22,7 +21,10 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * 子系统：向量入库服务
@@ -55,7 +57,7 @@ public class VectorIngestionService {
         log.info("开始处理文档: {}, 长度: {}", filename, content.length());
 
         // 2. 切片
-        final List<DocumentChunk> chunks = chunkService.chunkDocument(content, filename);
+        final List<DocumentChunkDTO> chunks = chunkService.chunkDocument(content, filename);
         if (CollectionUtil.isEmpty(chunks)) {
             log.warn("文档切片为空，跳过入库");
             return;
@@ -68,16 +70,16 @@ public class VectorIngestionService {
         log.debug("文档入库完成: {}", sourcePath);
     }
 
-    private void processBatch(String sourcePath, String originalFilename, List<DocumentChunk> chunks) {
+    private void processBatch(String sourcePath, String originalFilename, List<DocumentChunkDTO> chunks) {
 
         int totalChunks = chunks.size();
         for (int i = 0; i < totalChunks; i+= BATCHSIZE) {
             int end = Math.min(i + BATCHSIZE, totalChunks);
-            List<DocumentChunk> subList = chunks.subList(i, end);
+            List<DocumentChunkDTO> subList = chunks.subList(i, end);
             try {
                 // 1. 提取当前批次的文本
                 List<String> chunkTexts = subList.stream()
-                        .map(DocumentChunk::getContent)
+                        .map(DocumentChunkDTO::getContent)
                         .toList();
                 // 2. 向量化
                 final List<List<Float>> vectors = embeddingService.generateEmbedding(chunkTexts);
@@ -86,19 +88,20 @@ public class VectorIngestionService {
                 List<BizKnowledge> entities = new ArrayList<>();
                 for (int j = 0; j < subList.size(); j++) {
 
-                    DocumentChunk chunk = subList.get(j);
+                    DocumentChunkDTO chunk = subList.get(j);
                     // ID 生成逻辑
                     String uniqueKey = sourcePath + "_" + chunk.getChunkIndex();
                     String id = UUID.nameUUIDFromBytes(uniqueKey.getBytes(StandardCharsets.UTF_8)).toString();
 
                     // 构建 元数据
                     DocMetadataDTO metaDto = buildMetadataDTO(originalFilename, chunk, totalChunks);
-                    JsonObject metaJson = gson.toJsonTree(metaDto).getAsJsonObject();
+                    // json 插入的过程需要  JsonObject 但是 DTO 层用 Map ，分层解耦
+                    Map<String, Object> metaMap = BeanUtil.beanToMap(metaDto);
                     BizKnowledge entity = BizKnowledge.builder()
                             .id(id)
                             .content(chunk.getContent())
                             .vector(vectors.get(j))
-                            .metadata(metaJson) // 设置 JsonObject
+                            .metadata(metaMap)
                             .source(sourcePath)
                             .build();
                     entities.add(entity);
@@ -117,7 +120,7 @@ public class VectorIngestionService {
     /**
      * 构建元数据
      */
-    private DocMetadataDTO buildMetadataDTO( String originalFilename, DocumentChunk chunk, int totalChunks) {
+    private DocMetadataDTO buildMetadataDTO(String originalFilename, DocumentChunkDTO chunk, int totalChunks) {
         // 文件扩展名解析
         String extension = "";
         int dotIndex = originalFilename.lastIndexOf('.');

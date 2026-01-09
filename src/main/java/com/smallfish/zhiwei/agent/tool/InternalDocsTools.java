@@ -1,8 +1,8 @@
 package com.smallfish.zhiwei.agent.tool;
 
 import com.google.gson.Gson;
-import com.smallfish.zhiwei.service.RetrievalService;
-import com.smallfish.zhiwei.service.VectorSearchService;
+import com.smallfish.zhiwei.dto.resp.SearchResultDTO;
+import com.smallfish.zhiwei.service.retrieval.RetrievalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
@@ -40,7 +40,7 @@ public class InternalDocsTools implements AgentTools {
             log.info("Agent 正在调用 RAG 检索服务 问题: {}", query);
 
             // 召回 - 重排 - 精选
-            List<VectorSearchService.SearchResult> results = retrievalService.retrieve(query);
+            List<SearchResultDTO> results = retrievalService.retrieve(query);
 
             if (results == null || results.isEmpty()) {
                 log.warn("RAG 服务未返回任何有效文档");

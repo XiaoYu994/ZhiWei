@@ -1,4 +1,4 @@
-package com.smallfish.zhiwei.dto;
+package com.smallfish.zhiwei.dto.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class DocumentChunk {
+public class DocumentChunkDTO {
     /**
      * 分片内容
      */
@@ -43,7 +43,7 @@ public class DocumentChunk {
     * */
     @Override
     public String toString() {
-        return "DocumentChunk{" +
+        return "DocumentChunkDTO{" +
                 "chunkIndex=" + chunkIndex +
                 ", title='" + title + '\'' +
                 ", contentLength=" + (content != null ? content.length() : 0) +

@@ -1,5 +1,6 @@
-package com.smallfish.zhiwei.service;
+package com.smallfish.zhiwei.service.retrieval;
 
+import com.smallfish.zhiwei.dto.resp.SearchResultDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
@@ -34,9 +35,9 @@ public class RetrievalService {
      * @param query 用户提问
      * @return 排序后且包含元数据的文档列表
      */
-    public List<VectorSearchService.SearchResult> retrieve(String query) {
+    public List<SearchResultDTO> retrieve(String query) {
         // 1. Recall (向量召回) - 快速获取候选集
-        List<VectorSearchService.SearchResult> recallResults = vectorSearchService.search(query, recallTopK);
+        List<SearchResultDTO> recallResults = vectorSearchService.search(query, recallTopK);
 
         if (recallResults == null || recallResults.isEmpty()) {
             log.info("向量库未召回到任何数据，直接返回空");
@@ -44,8 +45,8 @@ public class RetrievalService {
         }
         // 2. 建立 ID 映射 (Map<ID, Object>)
         // Key 是 SearchResult 的 ID (唯一)，Value 是 SearchResult 对象本身
-        Map<String, VectorSearchService.SearchResult> idMap = recallResults.stream()
-                .collect(Collectors.toMap(VectorSearchService.SearchResult::getId, Function.identity()));
+        Map<String, SearchResultDTO> idMap = recallResults.stream()
+                .collect(Collectors.toMap(SearchResultDTO::getId, Function.identity()));
 
         // 3. 转换为 Document 对象，并保留 ID
         // -------------------------------------------------------------
@@ -63,7 +64,7 @@ public class RetrievalService {
         // 4. Rerank (重排) - 传入 Document 列表
         List<Document> rerankedDocs = rerankService.rerank(query, documentsForRerank, rerankTopK);
         // 5. 结果还原
-        List<VectorSearchService.SearchResult> finalResults = new ArrayList<>();
+        List<SearchResultDTO> finalResults = new ArrayList<>();
 
         // 6. 阈值过滤
         for (Document doc : rerankedDocs) {
@@ -74,7 +75,7 @@ public class RetrievalService {
             }
 
             // 7. 通过 id 召回原始对象
-            VectorSearchService.SearchResult originalObj = idMap.get(doc.getId());
+            SearchResultDTO originalObj = idMap.get(doc.getId());
 
             if (originalObj != null) {
                 if (score != null) {

@@ -1,4 +1,4 @@
-package com.smallfish.zhiwei.service.sub;
+package com.smallfish.zhiwei.service.ingestion;
 
 import com.smallfish.zhiwei.config.FileUploadConfig;
 import jakarta.annotation.Resource;

@@ -5,22 +5,16 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ChatResp {
+public class ChatRespDTO {
     /*
     *  大模型的回答
     * */
     private String answer;
 
-    /*
-    *  引用了哪些文件
-    * */
-    private List<String> sources;
 
     /*
     *  会话 ID

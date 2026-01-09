@@ -1,4 +1,4 @@
-package com.smallfish.zhiwei.service;
+package com.smallfish.zhiwei.service.base;
 
 import cn.hutool.core.convert.Convert;
 import lombok.RequiredArgsConstructor;

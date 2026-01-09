@@ -1,4 +1,4 @@
-package com.smallfish.zhiwei.service;
+package com.smallfish.zhiwei.service.retrieval;
 
 import com.alibaba.cloud.ai.dashscope.rerank.DashScopeRerankModel;
 import com.alibaba.cloud.ai.dashscope.rerank.DashScopeRerankOptions;

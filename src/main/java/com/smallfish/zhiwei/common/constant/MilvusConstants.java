@@ -12,7 +12,7 @@ public class MilvusConstants {
     /**
      * Milvus 集合名称
      */
-    public static final String MILVUS_COLLECTION_NAME = "biz";
+    public static final String MILVUS_COLLECTION_NAME = "model";
 
     /**
      * 向量维度（阿里 text-embedding-v4 向量模型） 支持64~2048维用户自定义向量维度

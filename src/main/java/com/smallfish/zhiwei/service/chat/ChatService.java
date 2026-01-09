@@ -1,4 +1,4 @@
-package com.smallfish.zhiwei.service;
+package com.smallfish.zhiwei.service.chat;
 
 import com.smallfish.zhiwei.agent.tool.AgentTools;
 import lombok.extern.slf4j.Slf4j;

@@ -1,6 +1,6 @@
-package com.smallfish.zhiwei.service.sub;
+package com.smallfish.zhiwei.service.ingestion;
 
-import com.smallfish.zhiwei.dto.IndexingResult;
+import com.smallfish.zhiwei.dto.resp.IndexingResultDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,8 +28,8 @@ public class KnowledgeBaseFacade {
     /**
      * 对外接口 1：扫描并索引目录
      */
-    public IndexingResult importFromDirectory(String directoryPath) {
-        IndexingResult result = new IndexingResult();
+    public IndexingResultDTO importFromDirectory(String directoryPath) {
+        IndexingResultDTO result = new IndexingResultDTO();
         result.setStartTime(LocalDateTime.now());
 
         String targetPath = (directoryPath == null || directoryPath.isBlank()) ? defaultPath : directoryPath;

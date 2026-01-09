@@ -1,7 +1,7 @@
-package com.smallfish.zhiwei.service;
+package com.smallfish.zhiwei.service.ingestion;
 
 import com.smallfish.zhiwei.config.DocumentChunkConfig;
-import com.smallfish.zhiwei.dto.DocumentChunk;
+import com.smallfish.zhiwei.dto.model.DocumentChunkDTO;
 import jakarta.annotation.Resource;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,8 +31,8 @@ public class DocumentChunkService {
      * @param filePath 文件路径（用于日志）
      * @return 文档分片列表
      */
-    public List<DocumentChunk> chunkDocument(String content, String filePath) {
-        List<DocumentChunk> chunks = new ArrayList<>();
+    public List<DocumentChunkDTO> chunkDocument(String content, String filePath) {
+        List<DocumentChunkDTO> chunks = new ArrayList<>();
         if (content == null || content.isEmpty()) {
             return chunks;
         }
@@ -43,7 +43,7 @@ public class DocumentChunkService {
         // 2. 进一步分片
         int globalChunkIndex = 0;
         for (Section section : sections) {
-            List<DocumentChunk> sectionChunks = chunkSection(section, globalChunkIndex);
+            List<DocumentChunkDTO> sectionChunks = chunkSection(section, globalChunkIndex);
             chunks.addAll(sectionChunks);
             globalChunkIndex += sectionChunks.size();
         }
@@ -90,13 +90,13 @@ public class DocumentChunkService {
     /**
      * 对单个章节进行分片
      */
-    private List<DocumentChunk> chunkSection(Section section, int startChunkIndex) {
-        List<DocumentChunk> chunks = new ArrayList<>();
+    private List<DocumentChunkDTO> chunkSection(Section section, int startChunkIndex) {
+        List<DocumentChunkDTO> chunks = new ArrayList<>();
         String content = section.content;
 
         // 如果整体小于最大长度，直接返回
         if (content.length() <= chunkConfig.getMaxSize()) {
-            chunks.add(new DocumentChunk(content.trim(), section.startIndex, section.startIndex + content.length(), startChunkIndex, section.title));
+            chunks.add(new DocumentChunkDTO(content.trim(), section.startIndex, section.startIndex + content.length(), startChunkIndex, section.title));
             return chunks;
         }
 
@@ -133,7 +133,7 @@ public class DocumentChunkService {
             // 建议：如果需要前端高亮，不要存 trim 后的 text，或者记录 trim 掉的 offset
             String savedText = chunkText.trim();
             if (!savedText.isEmpty()) {
-                chunks.add(new DocumentChunk(
+                chunks.add(new DocumentChunkDTO(
                         savedText,
                         section.startIndex + pointer, // 绝对开始位置
                         section.startIndex + end,     // 绝对结束位置

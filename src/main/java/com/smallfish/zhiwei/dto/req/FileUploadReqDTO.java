@@ -1,4 +1,4 @@
-package com.smallfish.zhiwei.dto;
+package com.smallfish.zhiwei.dto.req;
 
 import lombok.*;
 
@@ -9,7 +9,7 @@ import lombok.*;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class FileUploadRes {
+public class FileUploadReqDTO {
 
     /*
     *  文件名称

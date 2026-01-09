@@ -2,8 +2,8 @@ package com.smallfish.zhiwei.controller;
 
 import com.smallfish.zhiwei.common.result.Result;
 import com.smallfish.zhiwei.config.FileUploadConfig;
-import com.smallfish.zhiwei.dto.FileUploadRes;
-import com.smallfish.zhiwei.service.sub.KnowledgeBaseFacade;
+import com.smallfish.zhiwei.dto.req.FileUploadReqDTO;
+import com.smallfish.zhiwei.service.ingestion.KnowledgeBaseFacade;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -80,7 +80,7 @@ public class FileUploadController {
                 return ResponseEntity.status(503).body(Result.error(503, "任务提交失败"));
             }
             // 6. 立即返回响应，无需等待索引完成
-            FileUploadRes resData = new FileUploadRes(
+            FileUploadReqDTO resData = new FileUploadReqDTO(
                     originalFilename,
                     filePath.toString(),
                     file.getSize()

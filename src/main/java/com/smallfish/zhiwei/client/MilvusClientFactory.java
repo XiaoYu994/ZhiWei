@@ -3,7 +3,7 @@ package com.smallfish.zhiwei.client;
 import cn.hutool.core.util.StrUtil;
 import com.smallfish.zhiwei.common.constant.MilvusConstants;
 import com.smallfish.zhiwei.config.MilvusProperties;
-import com.smallfish.zhiwei.entity.BizKnowledge;
+import com.smallfish.zhiwei.model.BizKnowledge;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.DataType;
 import io.milvus.grpc.DescribeCollectionResponse;
@@ -121,7 +121,7 @@ public class MilvusClientFactory {
 
 
     /*
-    *  创建 biz collection
+    *  创建 model collection
     * */
     private void createBizCollection(MilvusServiceClient client) {
         // 定义字段
