@@ -1,15 +1,14 @@
 package com.smallfish.zhiwei.agent.tool;
 
 import com.google.gson.Gson;
+import com.smallfish.zhiwei.service.RetrievalService;
 import com.smallfish.zhiwei.service.VectorSearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -19,13 +18,12 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class InternalDocsTools implements AgentTools {
-    private final VectorSearchService vectorSearchService;
+    private final RetrievalService retrievalService;
     //  @Tool 机制非常智能。如果你的方法返回的是一个 Java 对象
     // （如 List<SearchResult>），框架会自动帮你把它序列化成 JSON 字符串喂给大模型
     // 但是 SearchResult 中有参数 是 Gson 对象所以需要手动序列化
     private final Gson gson = new Gson();
-    @Value("${rag.limit}")
-    private Long limit;
+
     /**
      * 优化后的中文描述
      * 注意：直接返回 List<SearchResult>，Spring AI 会自动转 JSON 给大模型
@@ -39,13 +37,13 @@ public class InternalDocsTools implements AgentTools {
             @ToolParam(description = "用于检索文档的关键词或问题摘要") String query) {
 
         try {
-            log.info("正在调用向量检索工具，关键词: {}, TopK: {}", query, limit);
+            log.info("Agent 正在调用 RAG 检索服务 问题: {}", query);
 
-            List<VectorSearchService.SearchResult> results =
-                    vectorSearchService.search(query, limit);
+            // 召回 - 重排 - 精选
+            List<VectorSearchService.SearchResult> results = retrievalService.retrieve(query);
 
             if (results == null || results.isEmpty()) {
-                log.warn("未检索到相关文档");
+                log.warn("RAG 服务未返回任何有效文档");
                 // 返回空列表即可，模型会看到 "[]"
                 return "[]";
             }

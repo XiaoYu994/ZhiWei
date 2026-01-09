@@ -30,7 +30,11 @@ file:
       -
 # RAG 配置
 rag:
-  limit: 10  # 检索返回的最相似文档数量
+  recall:
+    top-k: 50      # 召回数量
+  rerank:
+    top-k: 8      # 重排数量
+    threshold: 0.6 # 分数阈值
 
 spring:
   application:
@@ -46,6 +50,7 @@ spring:
           temperature: 0.7       # 温度 控制模型回答的发散性和随机性
           top-p: 0.9             # 词汇广度 累计概率达到 90% 的词里选
           max-tokens: 2000       # 最长 token 大约能输出 1000 到 1500 个汉字 限制输出上限
+          enableSearch: false    # 互联网搜索功能 默认 false
       embedding:
         options:
           model: text-embedding-v4
