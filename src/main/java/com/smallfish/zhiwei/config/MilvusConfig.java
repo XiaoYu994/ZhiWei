@@ -54,12 +54,12 @@ public class MilvusConfig {
                                 .build()
                 );
                 if (response.getStatus() != R.Status.Success.getCode()) {
-                    log.error(">>>>>> [Milvus] 集合加载失败! code: {}, msg: {}", response.getStatus(), response.getMessage());
+                    log.error("Milvus 集合加载失败! code: {}, msg: {}", response.getStatus(), response.getMessage());
                 } else {
-                    log.info(">>>>>> [Milvus] 集合加载请求已发送 (异步加载中)");
+                    log.info("Milvus 集合加载请求已发送 (异步加载中)");
                 }
             } catch (Exception e) {
-                log.error(">>>>>> [Milvus] 加载集合时发生异常", e);
+                log.error("Milvus 加载集合时发生异常", e);
             }
         };
     }

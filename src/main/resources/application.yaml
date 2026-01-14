@@ -34,7 +34,8 @@ rag:
     top-k: 50      # 召回数量
   rerank:
     top-k: 8      # 重排数量
-    threshold: 0.6 # 分数阈值
+    threshold: 0.4 # 分数阈值
+  model: qwen3-rerank  # 模型
 
 spring:
   application:
@@ -51,6 +52,8 @@ spring:
           top-p: 0.9             # 词汇广度 累计概率达到 90% 的词里选
           max-tokens: 2000       # 最长 token 大约能输出 1000 到 1500 个汉字 限制输出上限
           enableSearch: false    # 互联网搜索功能 默认 false
+          memory:
+            windows-size: 10     # 聊天记忆的长度
       embedding:
         options:
           model: text-embedding-v4

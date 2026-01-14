@@ -7,6 +7,7 @@ import com.alibaba.cloud.ai.model.RerankResponse;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -18,6 +19,9 @@ public class RerankService {
     //  直接注入 Spring AI 自动配置好的 Rerank 模型
     @Resource
     private DashScopeRerankModel dashScopeRerankModel;
+
+    @Value("${rag.model}")
+    private String model;
 
     /**
      * 重排方法 (Spring AI 风格)
@@ -36,7 +40,7 @@ public class RerankService {
             // 1. 构建请求 (注意：传入的是 document 对象列表)
             RerankRequest request = new RerankRequest(query, documents,
                     DashScopeRerankOptions.builder()
-                            .model("qwen3-rerank")
+                            .model(model)
                             .topN(topN)
                             .build());
 

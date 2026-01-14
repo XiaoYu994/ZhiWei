@@ -6,6 +6,7 @@ import com.smallfish.zhiwei.dto.req.ChatReqDTO;
 import com.smallfish.zhiwei.dto.resp.ChatRespDTO;
 import com.smallfish.zhiwei.service.chat.ChatService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,11 +25,8 @@ public class ChatController {
     private final ChatService chatService;
 
     @PostMapping("/send")
-    public Result<ChatRespDTO> sendMessage(@RequestBody ChatReqDTO req) {
-        if (StrUtil.hasBlank(req.getQuery())) {
-            return Result.error(400, "问题不能为空");
-        }
-        // 2. 处理会话 ID (Conversation ID)
+    public Result<ChatRespDTO> sendMessage(@Validated @RequestBody ChatReqDTO req) {
+        // 1. 处理会话 ID (Conversation ID)
         // 如果前端没传会话ID，说明是新开启的对话，生成一个新的 UUID
         // 如果前端传了，就用前端传的，这样才能保持上下文记忆
         String conversationId = req.getConversationId();
@@ -36,10 +34,11 @@ public class ChatController {
             conversationId = UUID.randomUUID().toString();
         }
         String answerContent = chatService.executeChat(req.getQuery(), conversationId);
-        // 4. 封装响应对象
-        ChatRespDTO resp = new ChatRespDTO();
-        resp.setAnswer(answerContent);       // 设置回答内容
-        resp.setConversationId(conversationId); // 将会话ID返还给前端，下次前端要带上这个ID
+
+        ChatRespDTO resp = ChatRespDTO.builder()
+                .answer(answerContent)
+                .conversationId(conversationId)
+                .build();
         return Result.success(resp);
     }
 }

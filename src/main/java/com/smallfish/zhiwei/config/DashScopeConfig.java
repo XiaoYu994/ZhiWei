@@ -11,13 +11,21 @@ import org.springframework.web.client.RestClient;
 import java.net.http.HttpClient;
 import java.time.Duration;
 
+
+/*
+*  DashScope API 配置
+* */
 @Configuration
 public class DashScopeConfig {
 
 
+    // 超时时间
     @Value("${spring.ai.dashscope.chat.options.timeout:180000}")
     private long timeout;
 
+    // 聊天记忆的长度
+    @Value("${spring.ai.dashscope.chat.options.memory.windows-size}")
+    private int memoryWindowSize;
     /**
      * 配置聊天记忆存储
      */
@@ -25,7 +33,7 @@ public class DashScopeConfig {
     public ChatMemory chatMemory() {
         // maxMessages(10) 表示只保留最近 10 条消息
         return MessageWindowChatMemory.builder()
-                .maxMessages(10)
+                .maxMessages(memoryWindowSize)
                 .build();
     }
     /**

@@ -34,7 +34,7 @@ public class MilvusClientFactory {
      * 创建客户端（带重试机制）
      * 如果连接失败，会重试 3 次，每次间隔 2 秒
      */
-    @Retryable(value = Exception.class, maxAttempts = 3, backoff = @Backoff(delay = 2000))
+    @Retryable(retryFor = Exception.class, maxAttempts = 3, backoff = @Backoff(delay = 2000))
     public MilvusServiceClient createClient() {
         MilvusServiceClient client = null;
         try {

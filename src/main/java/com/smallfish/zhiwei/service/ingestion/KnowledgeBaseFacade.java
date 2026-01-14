@@ -61,7 +61,7 @@ public class KnowledgeBaseFacade {
             }
             result.setSuccess(result.getFailCount() == 0);
 
-        } catch (Exception e) {
+        } catch (Throwable e) {
             result.setSuccess(false);
             result.setErrorMessage(e.getMessage());
             log.error("门面处理异常", e);
@@ -85,7 +85,7 @@ public class KnowledgeBaseFacade {
             // 直接调用子系统
             ingestionService.ingest(filename, content);
             log.info("异步处理完成: {}", filename);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.error("异步处理异常: {}", filename, e);
             // 生产环境中，这里应该把失败记录写入数据库的 "task_log" 表，方便后续重试
         }

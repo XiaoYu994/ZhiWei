@@ -75,7 +75,7 @@ public class FileUploadController {
             // 这里可能抛出 TaskRejectedException (线程池满)
             try {
                 knowledgeBaseFacade.importSingleDocAsync(originalFilename, content);
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 log.error("任务提交失败", e);
                 return ResponseEntity.status(503).body(Result.error(503, "任务提交失败"));
             }

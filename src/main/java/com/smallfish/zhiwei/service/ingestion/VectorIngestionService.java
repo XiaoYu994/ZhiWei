@@ -2,7 +2,6 @@ package com.smallfish.zhiwei.service.ingestion;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollectionUtil;
-import com.google.gson.Gson;
 import com.smallfish.zhiwei.common.constant.MilvusConstants;
 import com.smallfish.zhiwei.dto.model.DocMetadataDTO;
 import com.smallfish.zhiwei.dto.model.DocumentChunkDTO;
@@ -38,7 +37,6 @@ public class VectorIngestionService {
     private final DocumentChunkService chunkService;
     private final EmbeddingService embeddingService;
     private final MilvusServiceClient milvusClient;
-    private final Gson gson = new Gson(); // 复用 Gson 对象
 
     // 批处理大小 通义千问 只支持 10 段文本
     private static final int BATCHSIZE = 10;
@@ -52,7 +50,7 @@ public class VectorIngestionService {
     public void ingest(String filename, String content) {
         // 统一处理格式 上传的文件 filename 只是文件名，本地扫描是全路径
         String sourcePath = filename.replace(File.separator, "/");
-        // 1. 先删除该文件的旧数据！(这是原项目的关键逻辑)
+        // 1. 先删除该文件的旧数据
         deleteExistingData(sourcePath);
         log.info("开始处理文档: {}, 长度: {}", filename, content.length());
 
@@ -108,7 +106,7 @@ public class VectorIngestionService {
                 }
                 // 4. 插入这一小批
                 insertBatch(entities);
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 log.error("批次处理失败 [{} - {}]: {}", i, end, e.getMessage());
                 // 这里可以选择 throw 继续抛出，或者记录到错误表
                 throw new RuntimeException("向量处理失败", e);
@@ -177,7 +175,7 @@ public class VectorIngestionService {
 
             final MutationResult response = milvusClient.delete(deleteParam).getData();
             log.info("已清理文件旧数据: {}, 影响行数: {}", sourcePath, response.getDeleteCnt());
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.warn("清理旧数据失败 (可能是首次上传): {}", e.getMessage());
         }
     }

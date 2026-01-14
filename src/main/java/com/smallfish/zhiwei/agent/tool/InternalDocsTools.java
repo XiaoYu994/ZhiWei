@@ -50,7 +50,7 @@ public class InternalDocsTools implements AgentTools {
 
             return gson.toJson(results);
 
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.error("[工具错误] queryInternalDocs 执行失败", e);
             // 发生异常时，为了不让程序崩掉，可以返回一个包含错误信息的特殊对象
             return String.format("{\"error\": \"查询失败: %s\"}", e.getMessage());

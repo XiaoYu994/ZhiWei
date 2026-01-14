@@ -21,7 +21,7 @@ public class FileUploadConfig {
      * */
     private List<String> allowedExtensions;
 
-    // 2. 依然保留这个判断方法，但逻辑变简单了
+    //  判断文件格式是否支持
     public boolean isAllowed(String extension) {
         if (extension == null || allowedExtensions == null) {
             return false;

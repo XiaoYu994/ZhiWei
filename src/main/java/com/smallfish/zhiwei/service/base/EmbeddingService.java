@@ -7,7 +7,6 @@ import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 向量嵌入服务 spring ai
@@ -40,7 +39,7 @@ public class EmbeddingService {
        return vectorArrays
                .stream()
                .map(each -> Convert.toList(Float.class,each))
-               .collect(Collectors.toList());
+               .toList();
    }
 
     /**

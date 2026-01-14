@@ -104,7 +104,7 @@ public class VectorSearchService {
             }
             log.info("搜索完成, 找到 {} 个相似文档", results.size());
             return results;
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.error("搜索相似文档失败", e);
             // 返回空列表
             return Collections.emptyList();
