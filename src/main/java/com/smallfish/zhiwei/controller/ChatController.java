@@ -6,11 +6,13 @@ import com.smallfish.zhiwei.dto.req.ChatReqDTO;
 import com.smallfish.zhiwei.dto.resp.ChatRespDTO;
 import com.smallfish.zhiwei.service.chat.ChatService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
 
 import java.util.UUID;
 
@@ -24,6 +26,10 @@ import java.util.UUID;
 public class ChatController {
     private final ChatService chatService;
 
+
+    /*
+    * 阻塞输出
+    * */
     @PostMapping("/send")
     public Result<ChatRespDTO> sendMessage(@Validated @RequestBody ChatReqDTO req) {
         // 1. 处理会话 ID (Conversation ID)
@@ -40,5 +46,17 @@ public class ChatController {
                 .conversationId(conversationId)
                 .build();
         return Result.success(resp);
+    }
+
+    /*
+    *  流式输出
+    * */
+    @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> streamMessage(@Validated @RequestBody ChatReqDTO req) {
+        String conversationId = req.getConversationId();
+        if (StrUtil.isBlank(conversationId)) {
+            conversationId = UUID.randomUUID().toString();
+        }
+        return chatService.streamChat(req.getQuery(), conversationId);
     }
 }

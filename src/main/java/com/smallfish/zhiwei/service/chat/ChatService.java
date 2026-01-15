@@ -9,6 +9,7 @@ import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 
@@ -36,12 +37,17 @@ public class ChatService {
                 // B. 挂载你的旧工具 (自动处理 React/Function Calling)
                 .defaultTools(agentTools.toArray())
                 .defaultAdvisors(
+                        // 注册记忆
                         MessageChatMemoryAdvisor.builder(chatMemory)
                                 .conversationId(MessageWindowChatMemory.DEFAULT_CONVERSATION_ID)
                                 .build()
                 )
                 .build();
     }
+
+    /**
+     * 同步阻塞调用 (等待所有结果生成完一次性返回)
+     */
     public String executeChat(String question, String conversationId) {
         return chatClient.prompt()
                 .user(question)
@@ -50,5 +56,19 @@ public class ChatService {
                         .param(MessageWindowChatMemory.CONVERSATION_ID, conversationId))
                 .call()
                 .content();
+    }
+
+    /**
+     * 流式调用 (逐字返回)
+     * 适用于 SSE (Server-Sent Events)
+     */
+    public Flux<String> streamChat(String question, String conversationId) {
+        return chatClient.prompt()
+                .user(question)
+                .advisors(a -> a
+                        // 传入会话 ID，Spring AI 会在流结束后自动将完整对话存入内存
+                        .param(MessageWindowChatMemory.CONVERSATION_ID, conversationId))
+                .stream() //  核心区别：使用 stream()
+                .content(); // 返回 Flux<String>
     }
 }
