@@ -76,3 +76,18 @@ prometheus:
   # 这里的 IP 必须是刚才部署 Prometheus 的机器 IP
   endpoint: ${PROMETHEUS_URL}
   timeout: 10 # 超时时间(秒)
+
+# 打开数据开关
+management:
+  endpoints:
+    web:
+      exposure:
+        # 关键：这里必须包含 prometheus，或者直接写 "*" (不推荐生产环境用 *)
+        include: "health,info,prometheus"
+  endpoint:
+    prometheus:
+      enabled: true
+  observations:
+    key-values:
+      # (可选) 给所有指标自动打上应用名称标签，方便在 Grafana 里区分
+      application: ${spring.application.name}
