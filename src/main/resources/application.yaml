@@ -64,9 +64,15 @@ spring:
         multiplier: 2  # 重试间隔倍数
         max-interval: 10000  # 最大重试间隔10秒
 
-
+# 腾讯云日志配置
 tencent:
   cls:
     default-region: ap-chongqing  # 默认地域
     access-key: ${TENCENT_CLS_AK}
     secret-key: ${TENCENT_CLS_SK}
+
+# Prometheus 监控配置
+prometheus:
+  # 这里的 IP 必须是刚才部署 Prometheus 的机器 IP
+  endpoint: ${PROMETHEUS_URL}
+  timeout: 10 # 超时时间(秒)

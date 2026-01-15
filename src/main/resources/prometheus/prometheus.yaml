@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 15s     # 每 15 秒拉一次数据 (step)
+  evaluation_interval: 15s # 每 15 秒计算一次报警规则
+
+scrape_configs:
+  # 1. 监控 Prometheus 自身
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # 2. 监控你的服务器 (Node Exporter)
+  # 你的 AI 查 "CPU 使用率" 就是查的这里的数据
+  - job_name: 'linux-server'
+    static_configs:
+      # 如果是 Docker 部署，这里填宿主机 IP:9100，不要填 localhost
+      - targets: ['192.168.1.5:9100']
+        labels:
+          host_alias: 'dev-server-01'  # 给机器打个标签，方便 AI 区分
+
+  # 3. (可选) 监控你的 Java 应用 (ZhiWei Agent 自身)
+  # 需要在 Spring Boot 中引入 actuator 和 micrometer-registry-prometheus
+  - job_name: 'zhiwei-agent'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['192.168.1.5:8080']
