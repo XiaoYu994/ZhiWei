@@ -14,10 +14,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 public class ClsIntegrationTest {
 
     @Autowired
-    private ClsTopicTool topicTool;
+    private ClsTopicTools topicTool;
 
     @Autowired
-    private ClsLogQueryTool queryTool;
+    private ClsLogQueryTools queryTool;
 
     private static final String TEST_REGION = "ap-chongqing";
 

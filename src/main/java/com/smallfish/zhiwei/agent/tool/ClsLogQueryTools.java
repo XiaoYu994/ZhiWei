@@ -31,7 +31,7 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ClsLogQueryTool implements AgentTools {
+public class ClsLogQueryTools implements AgentTools {
 
     // 使用管理器
     private final ClsClientManager clientManager;

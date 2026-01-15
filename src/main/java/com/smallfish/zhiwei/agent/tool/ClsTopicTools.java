@@ -29,7 +29,7 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ClsTopicTool implements AgentTools {
+public class ClsTopicTools implements AgentTools {
 
     private final ClsClientManager clientManager;
 
