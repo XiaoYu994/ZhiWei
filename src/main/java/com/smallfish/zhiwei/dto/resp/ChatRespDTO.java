@@ -20,4 +20,9 @@ public class ChatRespDTO {
     *  会话 ID
     * */
     private String  conversationId;
+
+    /*
+    *  消息类型
+    * */
+    private String  type;
 }

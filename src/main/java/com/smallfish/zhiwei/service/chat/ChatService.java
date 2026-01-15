@@ -1,6 +1,8 @@
 package com.smallfish.zhiwei.service.chat;
 
 import com.smallfish.zhiwei.agent.tool.AgentTools;
+import com.smallfish.zhiwei.common.enums.ChatEventType;
+import com.smallfish.zhiwei.dto.resp.ChatRespDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -8,8 +10,10 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -62,13 +66,65 @@ public class ChatService {
      * 流式调用 (逐字返回)
      * 适用于 SSE (Server-Sent Events)
      */
-    public Flux<String> streamChat(String question, String conversationId) {
-        return chatClient.prompt()
+    /**
+     * 返回 Flux<ServerSentEvent> 以便前端区分是 "内容" 还是 "元数据"
+     */
+    public Flux<ServerSentEvent<ChatRespDTO>> streamChat(String question, String conversationId) {
+
+        // 1. 核心对话流 (Type = CONTENT)
+        Flux<ServerSentEvent<ChatRespDTO>> contentStream = chatClient.prompt()
                 .user(question)
-                .advisors(a -> a
-                        // 传入会话 ID，Spring AI 会在流结束后自动将完整对话存入内存
-                        .param(MessageWindowChatMemory.CONVERSATION_ID, conversationId))
-                .stream() //  核心区别：使用 stream()
-                .content(); // 返回 Flux<String>
+                .advisors(a -> a.param(MessageWindowChatMemory.CONVERSATION_ID, conversationId))
+                .stream()
+                .chatResponse()
+                .filter(response -> response.getResult() != null && response.getResult().getOutput().getText() != null)
+                .map(chatResponse -> {
+                    String content = chatResponse.getResult().getOutput().getText();
+
+                    // 构建 CONTENT 类型的 DTO
+                    ChatRespDTO resp = ChatRespDTO.builder()
+                            .conversationId(conversationId)
+                            .answer(content)
+                            .type(ChatEventType.CONTENT.getValue())
+                            .build();
+
+                    return ServerSentEvent.<ChatRespDTO>builder()
+                            .event("message")
+                            .data(resp)
+                            .build();
+                });
+
+        // 2. 结束信号流 (Type = DONE)
+        // 这是一个只包含 1 个元素的流，用于在最后时刻发送
+        Mono<ServerSentEvent<ChatRespDTO>> doneSignal = Mono.just(
+                ServerSentEvent.<ChatRespDTO>builder()
+                        .event("message")
+                        .data(ChatRespDTO.builder()
+                                .conversationId(conversationId)
+                                .answer("") // 结束时内容为空
+                                .type(ChatEventType.DONE.getValue())
+                                .build())
+                        .build()
+        );
+
+        // 3. 错误处理流 (Type = ERROR)
+        // 如果中间发生异常，吞掉异常并发送一条 Error 类型的消息给前端
+        Flux<ServerSentEvent<ChatRespDTO>> finalStream = contentStream
+                .concatWith(doneSignal) // ✅ 关键：把 DONE 信号拼接到流的末尾
+                .onErrorResume(e -> {
+                    log.error("流式对话异常", e);
+                    ChatRespDTO errorResp = ChatRespDTO.builder()
+                            .conversationId(conversationId)
+                            .answer("系统异常: " + e.getMessage())
+                            .type(ChatEventType.ERROR.getValue()) // ✅ 设置类型
+                            .build();
+
+                    return Mono.just(ServerSentEvent.<ChatRespDTO>builder()
+                            .event("message")
+                            .data(errorResp)
+                            .build());
+                });
+
+        return finalStream;
     }
 }

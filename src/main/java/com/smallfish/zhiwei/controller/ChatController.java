@@ -1,12 +1,14 @@
 package com.smallfish.zhiwei.controller;
 
 import cn.hutool.core.util.StrUtil;
+import com.smallfish.zhiwei.common.enums.ChatEventType;
 import com.smallfish.zhiwei.common.result.Result;
 import com.smallfish.zhiwei.dto.req.ChatReqDTO;
 import com.smallfish.zhiwei.dto.resp.ChatRespDTO;
 import com.smallfish.zhiwei.service.chat.ChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -44,6 +46,7 @@ public class ChatController {
         ChatRespDTO resp = ChatRespDTO.builder()
                 .answer(answerContent)
                 .conversationId(conversationId)
+                .type(ChatEventType.CONTENT.getValue())
                 .build();
         return Result.success(resp);
     }
@@ -52,11 +55,11 @@ public class ChatController {
     *  流式输出
     * */
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> streamMessage(@Validated @RequestBody ChatReqDTO req) {
-        String conversationId = req.getConversationId();
-        if (StrUtil.isBlank(conversationId)) {
-            conversationId = UUID.randomUUID().toString();
-        }
+    public Flux<ServerSentEvent<ChatRespDTO>> streamChat(@Validated @RequestBody ChatReqDTO req) {
+        String conversationId = StrUtil.isBlank(req.getConversationId())
+                ? UUID.randomUUID().toString()
+                : req.getConversationId();
+
         return chatService.streamChat(req.getQuery(), conversationId);
     }
 }
