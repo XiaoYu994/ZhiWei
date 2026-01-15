@@ -1,0 +1,33 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+rule_files:
+  - "rules.yml"
+# 配置 Alertmanager (报警发送给谁)
+alerting:
+  alertmanagers:
+    - static_configs:
+        # Windows Docker 下，必须用 host.docker.internal
+        # 即使你还没启动 Alertmanager 容器，写这个也不会报错，只是发不出去而已
+        - targets: ['host.docker.internal:9093']
+
+scrape_configs:
+  # 1. 监控 Prometheus 自身 (容器内部 localhost 是 OK 的)
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # 2. 监控宿主机 (Node Exporter)
+  - job_name: 'linux-server'
+    static_configs:
+      # Windows Docker 环境下，用 host.docker.internal 指代本机
+      - targets: ['host.docker.internal:9100']
+        labels:
+          host_alias: 'dev-server-01'
+
+  # 3. 监控 Java 应用 (ZhiWei Agent)
+  - job_name: 'zhiwei-agent'
+    # 标准指标路径是 /actuator/prometheus
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:9901']

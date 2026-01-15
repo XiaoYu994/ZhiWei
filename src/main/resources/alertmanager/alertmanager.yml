@@ -1,0 +1,17 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname']
+  group_wait: 10s # 初次等待
+  group_interval: 10s # 分组间隔
+  repeat_interval: 1h # 重复间隔
+  receiver: 'zhiwei-webhook' # 默认发给这个接收器
+
+receivers:
+  - name: 'zhiwei-webhook'
+    webhook_configs:
+      #这里填你 Java 服务的公网 IP 或 Docker 互通 IP
+      # 千万别填 localhost，因为是在 Alertmanager 容器里访问
+      - url: 'http://host.docker.internal:9901/api/webhook/prometheus'
+        send_resolved: true

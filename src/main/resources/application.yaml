@@ -77,6 +77,11 @@ prometheus:
   endpoint: ${PROMETHEUS_URL}
   timeout: 10 # 超时时间(秒)
 
+# 发送通知
+notification:
+  # 换成你自己的钉钉机器人链接 (带 access_token)
+  webhook-url: ${WEBHOOK_URL}
+
 # 打开数据开关
 management:
   endpoints:

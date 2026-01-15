@@ -1,0 +1,83 @@
+groups:
+  # ======================================================
+  # 1. 基础设施监控 (针对 Node Exporter)
+  # 目标：服务器死活、CPU/内存/磁盘资源是否耗尽
+  # ======================================================
+  - name: host-monitoring
+    rules:
+      # [严重] 实例宕机：超过 1 分钟连不上
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "实例 {{ $labels.instance }} 已宕机"
+          description: "Prometheus 无法连接目标实例，请检查服务器是否关机或防火墙配置。"
+
+      # [警告] CPU 负载高：使用率 > 85% 持续 3 分钟
+      - alert: HostCpuHighLoad
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[3m])) * 100) > 85
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "实例 {{ $labels.instance }} CPU 负载较高"
+          description: 'CPU 使用率已达到 {{ $value | printf "%.2f" }}%，可能导致服务响应变慢。'
+
+      # [警告] 内存不足：可用内存 < 15% 持续 3 分钟
+      - alert: HostMemoryLow
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100) < 15
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "实例 {{ $labels.instance }} 内存吃紧"
+          description: '当前可用内存仅剩 {{ $value | printf "%.2f" }}%，存在 OOM 风险。'
+
+      # [严重] 磁盘即将写满：剩余空间 < 10%
+      - alert: HostDiskRunningFull
+        # 排除掉 docker 的 overlay 等虚拟文件系统，只看物理盘
+        expr: 100 - (node_filesystem_avail_bytes{fstype=~"ext4|xfs"} / node_filesystem_size_bytes * 100) > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "实例 {{ $labels.instance }} 磁盘空间严重不足"
+          description: "分区 {{ $labels.mountpoint }} 使用率已超过 90%，剩余空间不足，可能导致无法写入日志。"
+
+  # ======================================================
+  # 2. Java 应用监控 (针对 Spring Boot Actuator)
+  # 目标：JVM 堆内存、GC、HTTP 错误率
+  # ======================================================
+  - name: app-monitoring
+    rules:
+      # [严重] 接口大量报错 (5xx)：错误率 > 5%
+      - alert: AppHighErrorRate
+        expr: sum(rate(http_server_requests_seconds_count{status=~"5.."}[1m])) by (instance, job) / sum(rate(http_server_requests_seconds_count[1m])) by (instance, job) * 100 > 5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "服务 {{ $labels.instance }} 接口错误率飙升"
+          description: '当前 HTTP 5xx 错误率高达 {{ $value | printf "%.2f" }}%，请立即让 AI 排查日志。'
+
+      # [严重] JVM 堆内存即将溢出：使用率 > 90%
+      - alert: JvmHeapTooHigh
+        expr: sum(jvm_memory_used_bytes{area="heap"}) by (instance) / sum(jvm_memory_max_bytes{area="heap"}) by (instance) * 100 > 90
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "服务 {{ $labels.instance }} JVM 堆内存即将溢出"
+          description: '堆内存使用率已达 {{ $value | printf "%.2f" }}%，即将发生 OOM Crash。'
+
+      # [警告] GC 过于频繁：吞吐量低，1分钟内 GC 耗时超过 2秒
+      - alert: JvmGcFrequent
+        expr: rate(jvm_gc_pause_seconds_sum[1m]) > 0.03
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "服务 {{ $labels.instance }} GC 过于频繁"
+          description: "JVM 正花费大量时间进行垃圾回收，可能导致系统卡顿。"
