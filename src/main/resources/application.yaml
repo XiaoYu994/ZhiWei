@@ -64,3 +64,9 @@ spring:
         multiplier: 2  # 重试间隔倍数
         max-interval: 10000  # 最大重试间隔10秒
 
+
+tencent:
+  cls:
+    default-region: ap-chongqing  # 默认地域
+    access-key: ${TENCENT_CLS_AK}
+    secret-key: ${TENCENT_CLS_SK}

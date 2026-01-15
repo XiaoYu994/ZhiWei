@@ -27,6 +27,7 @@
         <spring-ai-alibaba-extensions.version>1.1.0.0-RC2</spring-ai-alibaba-extensions.version>
         <hutool.version>5.8.40</hutool.version>
         <milvus.version>2.6.10</milvus.version>
+        <tencentcloudapi-cls.version>3.1.1398</tencentcloudapi-cls.version>
     </properties>
 
     <!-- 使用到的时候才下载依赖-->
@@ -69,6 +70,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- 测试依赖 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
         </dependency>
 
         <!-- 参数校验 -->
@@ -133,6 +140,12 @@
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
             <version>${hutool.version}</version>
+        </dependency>
+        <!--  CLS 腾讯云日志服务-->
+        <dependency>
+            <groupId>com.tencentcloudapi</groupId>
+            <artifactId>tencentcloud-sdk-java-cls</artifactId>
+            <version>${tencentcloudapi-cls.version}</version>
         </dependency>
     </dependencies>
 
