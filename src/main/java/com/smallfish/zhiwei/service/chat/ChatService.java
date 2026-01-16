@@ -63,6 +63,19 @@ public class ChatService {
     }
 
     /**
+     * 同步阻塞调用 (支持自定义 System Prompt)
+     */
+    public String executeChat(String question, String conversationId, String systemPrompt) {
+        return chatClient.prompt()
+                .system(systemPrompt) // 覆盖默认 System Prompt
+                .user(question)
+                .advisors(a -> a
+                        .param(MessageWindowChatMemory.CONVERSATION_ID, conversationId))
+                .call()
+                .content();
+    }
+
+    /**
      * 流式调用 (逐字返回)
      * 适用于 SSE (Server-Sent Events)
      */
@@ -110,13 +123,13 @@ public class ChatService {
         // 3. 错误处理流 (Type = ERROR)
         // 如果中间发生异常，吞掉异常并发送一条 Error 类型的消息给前端
         Flux<ServerSentEvent<ChatRespDTO>> finalStream = contentStream
-                .concatWith(doneSignal) // ✅ 关键：把 DONE 信号拼接到流的末尾
+                .concatWith(doneSignal) // 把 DONE 信号拼接到流的末尾
                 .onErrorResume(e -> {
                     log.error("流式对话异常", e);
                     ChatRespDTO errorResp = ChatRespDTO.builder()
                             .conversationId(conversationId)
                             .answer("系统异常: " + e.getMessage())
-                            .type(ChatEventType.ERROR.getValue()) // ✅ 设置类型
+                            .type(ChatEventType.ERROR.getValue()) //  设置类型
                             .build();
 
                     return Mono.just(ServerSentEvent.<ChatRespDTO>builder()
