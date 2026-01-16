@@ -15,9 +15,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -26,34 +24,48 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Component
-public class PrometheusQueryTools implements AgentTools {
+public class PrometheusQueryTools implements AgentTools{
 
     @Value("${prometheus.endpoint}")
     private String prometheusEndpoint;
 
-    @Value("${prometheus.timeout}")
+    @Value("${prometheus.timeout:10}") // 增加默认值防止配置缺失报错
     private Integer timeoutSeconds;
+
+    // 新增：Mock 开关，方便本地测试
+    @Value("${prometheus.mock:false}")
+    private boolean mockEnabled;
+
+    // 修复：补全缺失的时间格式化常量
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")
             .withZone(ZoneId.systemDefault());
 
-    @Tool(description = "查询 Prometheus 监控指标。用于分析系统负载、错误率等数值指标的趋势。")
+    @Tool(description = "查询 Prometheus 监控数据。用于获取 CPU、内存、QPS 等指标的历史趋势。")
     public String queryPrometheus(
-            @ToolParam(description = "PromQL 查询语句 (例如: rate(http_requests_total[1m]))") String query,
-            @ToolParam(description = "时间范围(分钟)，默认 30 分钟") Integer durationMinutes) {
+            @ToolParam(description = "PromQL 查询语句，例如 'up' 或 'sum(rate(http_requests_total[5m]))'") String query,
+            @ToolParam(description = "查询的时间范围（分钟），默认为 30 分钟", required = false) Integer range
+    ) {
+        // 参数校验与默认值处理
+        if (range == null || range <= 0) {
+            range = 30;
+        }
 
-        int range = (durationMinutes == null || durationMinutes <= 0) ? 30 : durationMinutes;
-        log.info("AI 请求查询监控 | PromQL: {} | Range: {}m", query, range);
+        // 1. Mock 逻辑介入
+        if (mockEnabled) {
+            log.info("Prometheus Mock 模式已开启，返回模拟数据: {}", query);
+            return mockPrometheusResponse(query, range);
+        }
 
-        // 1. 计算时间窗口
+        // 2. 计算时间窗口
         long now = Instant.now().getEpochSecond();
         long start = now - (range * 60L);
 
-        // 2. 智能计算 step (步长)
+        // 3. 智能计算 step (步长)
         // 目标：限制返回的数据点数量在 20 个左右，避免 Token 爆炸
         // 例如：查 60 分钟，step = 60*60 / 20 = 180秒 (3分钟一个点)
         long step = Math.max(15, (range * 60) / 20);
 
-        // 3. 构建 URL
+        // 4. 构建 URL
         String url = String.format("%s/api/v1/query_range", prometheusEndpoint);
         Map<String, Object> params = new HashMap<>();
         params.put("query", query);
@@ -61,22 +73,24 @@ public class PrometheusQueryTools implements AgentTools {
         params.put("end", now);
         params.put("step", step);
 
-        // 4. 发起 HTTP GET 请求
+        log.info("执行 PromQL: {}, 范围: {}m, Step: {}s", query, range, step);
+
+        // 5. 发起 HTTP GET 请求
         try (HttpResponse response = HttpRequest.get(url)
                 .form(params)
                 .timeout(timeoutSeconds * 1000) // 秒转毫秒
                 .execute()) {
 
-            // 1. 先判断 HTTP 状态码 (防御性编程)
+            // 先判断 HTTP 状态码 (防御性编程)
             if (!response.isOk()) {
                 log.warn("Prometheus 返回非 200 状态码: {}", response.getStatus());
                 return "查询失败: Prometheus 服务端返回错误 (Status: " + response.getStatus() + ")";
             }
 
-            // 2. 获取响应体 (流读取完毕后，try-with-resources 会在块结束时自动调用 close)
+            // 获取响应体
             String jsonResp = response.body();
 
-            // 3. 解析结果
+            // 解析结果
             PrometheusResponseDTO respObj = JSONUtil.toBean(jsonResp, PrometheusResponseDTO.class);
 
             if (!"success".equals(respObj.getStatus())) {
@@ -91,11 +105,50 @@ public class PrometheusQueryTools implements AgentTools {
 
         } catch (IORuntimeException e) {
             log.error("Prometheus 请求超时或网络异常", e);
-            return "查询失败: 请求超时 (" + timeoutSeconds + "秒) 或网络不可达。";
+            return "查询失败: 请求超时 (" + timeoutSeconds + "秒) 或网络不可达 - " + prometheusEndpoint;
         } catch (Throwable e) {
             log.error("Prometheus 解析异常", e);
             return "查询执行出错: " + e.getMessage();
         }
+    }
+
+    /**
+     * 模拟 Prometheus 响应
+     */
+    private String mockPrometheusResponse(String query, int range) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("查询成功 (Mock 数据, 过去 %d 分钟趋势):\n", range));
+        sb.append(String.format("- 实例/标签: {\"instance\":\"mock-instance-01\", \"job\":\"mock-job\", \"query\":\"%s\"}\n", query));
+        sb.append("  数据点(时间:数值): [");
+
+        // 生成 10 个模拟数据点
+        long now = Instant.now().getEpochSecond();
+        long step = (range * 60L) / 10;
+        List<String> points = new ArrayList<>();
+        Random random = new Random();
+
+        // 基础值：根据 query 内容猜测
+        double baseValue = 50.0;
+        if (query.contains("cpu")) baseValue = 80.0; // 模拟高 CPU
+        if (query.contains("memory")) baseValue = 70.0;
+        if (query.contains("error")) baseValue = 0.5;
+
+        for (int i = 0; i < 10; i++) {
+            long timestamp = now - ((9 - i) * step);
+            String timeStr = TIME_FORMATTER.format(Instant.ofEpochSecond(timestamp));
+
+            // 波动
+            double value = baseValue + (random.nextDouble() * 10 - 5);
+            if (value < 0) value = 0;
+
+            // 格式化
+            points.add(String.format("%s:%.2f", timeStr, value));
+        }
+
+        sb.append(String.join(", ", points));
+        sb.append("]\n");
+        sb.append("(注：这是模拟数据)");
+        return sb.toString();
     }
 
     /**
