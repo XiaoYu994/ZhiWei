@@ -40,6 +40,12 @@ rag:
 spring:
   application:
     name: zhiwei
+  # Redis 配置
+  data:
+    redis:
+      host: 172.28.64.14
+      port: 6379
+      password: xhy_redis
   # Spring AI Alibaba DashScope 配置
   ai:
     dashscope:
@@ -73,6 +79,7 @@ tencent:
 
 # Prometheus 监控配置
 prometheus:
+  mock-enabled: true
   # 这里的 IP 必须是刚才部署 Prometheus 的机器 IP
   endpoint: ${PROMETHEUS_URL}
   timeout: 10 # 超时时间(秒)
