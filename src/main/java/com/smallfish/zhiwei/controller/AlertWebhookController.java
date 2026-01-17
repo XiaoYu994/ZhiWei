@@ -3,6 +3,7 @@ package com.smallfish.zhiwei.controller;
 import cn.hutool.core.collection.CollUtil;
 import com.smallfish.zhiwei.common.result.Result;
 import com.smallfish.zhiwei.dto.req.AlertWebhookDTO;
+import com.smallfish.zhiwei.service.chat.AutoOpsGraphService;
 import com.smallfish.zhiwei.service.chat.AutoOpsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AlertWebhookController {
 
     private final AutoOpsService autoOpsService;
+    private final AutoOpsGraphService autoOpsGraphService;
 
     /**
      * 接收 Prometheus Alertmanager 的 Webhook
@@ -32,7 +34,10 @@ public class AlertWebhookController {
 
         // 遍历告警，丢给异步线程池处理
         for (AlertWebhookDTO.Alert alert : webhook.getAlerts()) {
-            autoOpsService.processAlertAsync(alert);
+            // 线性编排
+//            autoOpsService.processAlertAsync(alert);
+            // 图编排
+            autoOpsGraphService.processAlertGraphAsync(alert);
         }
 
         return Result.success("Accepted");
