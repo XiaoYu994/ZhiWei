@@ -1,6 +1,9 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+  # 全局默认地域
+  external_labels:
+    region: 'ap-guangzhou'
 rule_files:
   - "rules.yml"
 # 配置 Alertmanager (报警发送给谁)
@@ -24,6 +27,7 @@ scrape_configs:
       - targets: ['host.docker.internal:9100']
         labels:
           host_alias: 'dev-server-01'
+          region: 'ap-chongqing'  # 服务所在地域
 
   # 3. 监控 Java 应用 (ZhiWei Agent)
   - job_name: 'zhiwei-agent'

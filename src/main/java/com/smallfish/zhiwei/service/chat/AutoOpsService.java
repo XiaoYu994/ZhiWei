@@ -53,6 +53,7 @@ public class AutoOpsService {
         String tenantId = alert.getLabels().getOrDefault("tenant_id", "default");
         String instance = alert.getLabels().getOrDefault("instance", "UnknownInstance");
         String severity = alert.getLabels().getOrDefault("severity", "warning");
+        String region = alert.getLabels().getOrDefault("region", "UnknownRegion");
         String description = alert.getAnnotations().getOrDefault("description", "暂无描述");
 
         // 2. 【R】Redis 告警收敛 (分布式原子锁)
@@ -72,7 +73,7 @@ public class AutoOpsService {
 
         try {
             // 3. 构建基础上下文 (Context)
-            String alertContext = buildAlertContext(alertName, instance, severity, description);
+            String alertContext = buildAlertContext(alertName, instance, severity, description, region);
             String conversationId = String.format("AUTO-%s-%s-%s", tenantId, instance, DateUtil.today());
 
             // ==================== Phase 1: Plan (规划) ====================
@@ -153,14 +154,15 @@ public class AutoOpsService {
     /**
      * 辅助方法：构建告警上下文文本
      */
-    private String buildAlertContext(String name, String instance, String severity, String desc) {
+    private String buildAlertContext(String name, String instance, String severity, String desc, String region) {
         return String.format(
                 "**告警快照**\n" +
                         "> 告警名称：%s\n" +
                         "> 故障实例：%s\n" +
+                        "> 所属地域：%s\n" +
                         "> 严重程度：%s\n" +
                         "> 详细描述：%s",
-                name, instance, severity, desc
+                name, instance, region, severity, desc
         );
     }
 
