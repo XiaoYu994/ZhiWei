@@ -6,6 +6,7 @@ import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import com.alibaba.cloud.ai.graph.agent.flow.agent.SupervisorAgent;
 import com.smallfish.zhiwei.agent.tool.ClsLogQueryTools;
 import com.smallfish.zhiwei.agent.tool.ClsTopicTools;
+import com.smallfish.zhiwei.agent.tool.InternalDocsTools;
 import com.smallfish.zhiwei.agent.tool.PrometheusQueryTools;
 import com.smallfish.zhiwei.config.AiOpsPromptConfig;
 import com.smallfish.zhiwei.dto.req.AlertWebhookDTO;
@@ -42,6 +43,7 @@ public class AutoOpsGraphService {
     private final PrometheusQueryTools prometheusTools;
     private final ClsLogQueryTools clsTools;
     private final ClsTopicTools clsTopicTools;
+    private final InternalDocsTools internalDocsTools;
 
     // Graph 模式配置
     private static final String LOCK_KEY_PREFIX = "zhiwei:ops:graph:lock:";
@@ -88,7 +90,7 @@ public class AutoOpsGraphService {
                     .description("负责执行具体的查询任务。")
                     .model(chatModel)
                     .systemPrompt(promptConfig.getExecutorPrompt())
-                    .tools(ToolCallbacks.from(prometheusTools, clsTools,clsTopicTools))
+                    .tools(ToolCallbacks.from(prometheusTools, clsTools,clsTopicTools,internalDocsTools))
                     .build();
 
             // --- Router: Supervisor (大管家) ---
