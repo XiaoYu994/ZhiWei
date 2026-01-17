@@ -35,3 +35,7 @@ scrape_configs:
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets: ['host.docker.internal:9901']
+        labels:
+          # 告诉 AI，这个服务的日志在重庆的 CLS 里
+          region: 'ap-chongqing'
+          env: 'prod'
