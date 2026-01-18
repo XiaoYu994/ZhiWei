@@ -7,6 +7,9 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
+/*
+*  对话 agent 响应参数
+* */
 @Data
 @Builder
 @AllArgsConstructor

@@ -27,7 +27,10 @@ public class KnowledgeBaseFacade {
     private String defaultPath;
 
     /**
-     * 对外接口 1：扫描并索引目录
+     * 索引指定目录下的所有文件
+     *
+     * @param directoryPath 目录路径（可选，默认使用配置的上传目录）
+     * @return 索引结果  这里可以优化：定时重建目录下所有文件的索引
      */
     public IndexingResultDTO importFromDirectory(String directoryPath) {
         IndexingResultDTO result = new IndexingResultDTO();

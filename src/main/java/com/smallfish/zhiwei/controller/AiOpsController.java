@@ -26,6 +26,9 @@ public class AiOpsController {
     // Multi-Agent 模式
     private final AutoOpsService autoOpsService;
 
+    /*
+    *  ai ops 接口
+    * */
     @PostMapping(value = "/troubleshoot", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<ChatRespDTO>> troubleshoot(@Validated @RequestBody ChatReqDTO req) {
         String conversationId = req.getConversationId();

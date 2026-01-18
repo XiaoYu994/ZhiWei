@@ -4,6 +4,7 @@ import com.tencentcloudapi.cls.v20201016.ClsClient;
 import com.tencentcloudapi.common.Credential;
 import com.tencentcloudapi.common.profile.ClientProfile;
 import com.tencentcloudapi.common.profile.HttpProfile;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +28,7 @@ public class ClsClientManager {
 
     private final Credential credential;
 
+    @Getter
     @Value("${tencent.cls.default-region}")
     private String defaultRegion;
 
@@ -62,7 +64,4 @@ public class ClsClientManager {
         });
     }
 
-    public String getDefaultRegion() {
-        return defaultRegion;
-    }
 }

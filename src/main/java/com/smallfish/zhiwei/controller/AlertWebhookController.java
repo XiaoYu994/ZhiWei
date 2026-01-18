@@ -28,6 +28,7 @@ public class AlertWebhookController {
      */
     @PostMapping("/prometheus")
     public Result<String> receiveAlert(@RequestBody AlertWebhookDTO webhook) {
+        // "firing" 是 Prometheus 官方定义的标准状态值
         if (!"firing".equals(webhook.getStatus()) || CollUtil.isEmpty(webhook.getAlerts())) {
             return Result.success("Skipped");
         }
@@ -35,7 +36,7 @@ public class AlertWebhookController {
         // 遍历告警，丢给异步线程池处理
         for (AlertWebhookDTO.Alert alert : webhook.getAlerts()) {
             // 线性编排
-//            autoOpsService.processAlertAsync(alert);
+            // autoOpsService.processAlertAsync(alert);
             // 图编排
             autoOpsGraphService.processAlertGraphAsync(alert);
         }

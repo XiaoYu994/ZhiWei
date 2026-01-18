@@ -25,6 +25,9 @@ public class FileUploadController {
     private final FileStorageService fileStorageService;
     private final KnowledgeBaseFacade knowledgeBaseFacade;
 
+    /*
+    *  文件上传接口，同时上传到向量数据库
+    * */
     @PostMapping( consumes = "multipart/form-data")
     public ResponseEntity<Result<?>> upload(@RequestParam("file") MultipartFile file) {
         try {
@@ -54,6 +57,9 @@ public class FileUploadController {
         }
     }
 
+    /*
+    *  文件列表获取接口
+    * */
     @GetMapping
     public ResponseEntity<Result<List<FileUploadReqDTO>>> listFiles() {
         try {
@@ -66,6 +72,9 @@ public class FileUploadController {
         }
     }
 
+    /*
+    * 文件删除接口
+    * */
     @DeleteMapping
     public Result<String> deleteFile(@RequestParam String fileName) {
         // 简单参数校验

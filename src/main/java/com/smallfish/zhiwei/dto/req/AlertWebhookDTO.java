@@ -5,6 +5,9 @@ import lombok.Data;
 import java.util.List;
 import java.util.Map;
 
+/*
+* webhook 请求响应参数
+* */
 @Data
 public class AlertWebhookDTO {
     /*

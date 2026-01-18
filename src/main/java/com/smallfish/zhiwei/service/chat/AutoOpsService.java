@@ -35,7 +35,6 @@ public class AutoOpsService {
 
     private final NotificationService notificationService;
     private final StringRedisTemplate redisTemplate;
-    private final AutoOpsGraphService autoOpsGraphService;
 
     // 注入 Agents
     private final PlannerAgent plannerAgent;
