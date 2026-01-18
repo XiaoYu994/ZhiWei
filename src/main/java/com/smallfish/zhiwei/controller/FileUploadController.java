@@ -8,10 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -21,13 +18,14 @@ import java.util.List;
 * */
 @Slf4j
 @RestController
+@RequestMapping("/api/file")
 @RequiredArgsConstructor
 public class FileUploadController {
 
     private final FileStorageService fileStorageService;
     private final KnowledgeBaseFacade knowledgeBaseFacade;
 
-    @PostMapping(value = "/api/upload", consumes = "multipart/form-data")
+    @PostMapping( consumes = "multipart/form-data")
     public ResponseEntity<Result<?>> upload(@RequestParam("file") MultipartFile file) {
         try {
             // 1. 委托给存储服务处理文件
@@ -56,7 +54,7 @@ public class FileUploadController {
         }
     }
 
-    @GetMapping("/api/files")
+    @GetMapping
     public ResponseEntity<Result<List<FileUploadReqDTO>>> listFiles() {
         try {
             List<FileUploadReqDTO> files = fileStorageService.listFiles();
@@ -66,5 +64,16 @@ public class FileUploadController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Result.error(500, "获取文件列表失败: " + e.getMessage()));
         }
+    }
+
+    @DeleteMapping
+    public Result<String> deleteFile(@RequestParam String fileName) {
+        // 简单参数校验
+        if (fileName == null || fileName.trim().isEmpty()) {
+            return Result.error(500,"文件名不能为空");
+        }
+
+        knowledgeBaseFacade.deleteDocument(fileName);
+        return Result.success("删除成功: " + fileName);
     }
 }

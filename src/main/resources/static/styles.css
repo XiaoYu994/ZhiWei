@@ -1317,6 +1317,49 @@ body {
     color: #5f6368;
 }
 
+.file-delete-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: #ea4335;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    padding: 0;
+    flex-shrink: 0;
+    opacity: 0;
+}
+
+.file-item:hover .file-delete-btn {
+    opacity: 1;
+}
+
+.file-delete-btn:hover {
+    background-color: rgba(234, 67, 53, 0.1);
+    transform: scale(1.05);
+}
+
+.file-delete-btn:active {
+    transform: scale(0.95);
+}
+
+.file-delete-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+[data-theme="dark"] .file-delete-btn {
+    color: #ff6b6b;
+}
+
+[data-theme="dark"] .file-delete-btn:hover {
+    background-color: rgba(255, 107, 107, 0.15);
+}
+
 [data-theme="dark"] .file-icon {
     background-color: rgba(16, 163, 127, 0.2);
 }

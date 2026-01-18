@@ -43,6 +43,23 @@ public class VectorIngestionService {
 
 
     /**
+     * 根据文件名删除向量知识
+     * @param fileName 文件名
+     */
+    public void deleteVectorsByFileName(String fileName) {
+        log.info("正在从 Milvus 删除文档向量: {}", fileName);
+        // 构造删除表达式 (Expression)
+        String expr = BizKnowledge.FIELD_SOURCE + " == '" + fileName + "'";
+
+        DeleteParam deleteParam = DeleteParam.newBuilder()
+                .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
+                .withExpr(expr)
+                .build();
+
+        milvusClient.delete(deleteParam);
+        log.info("Milvus 向量清理完成");
+    }
+    /**
      *  处理单个文档的核心流程
      * @param filename 文件名称
      * @param content 文件内容

@@ -1,7 +1,7 @@
 // SuperBizAgent 前端应用
 class SuperBizAgentApp {
     constructor() {
-        this.apiBaseUrl = 'http://localhost:9901/api';
+        this.apiBaseUrl = '/api';
         this.currentMode = 'quick'; // 'quick' 或 'stream'
         this.sessionId = this.generateSessionId();
         this.isStreaming = false;
@@ -1093,7 +1093,7 @@ class SuperBizAgentApp {
             formData.append('file', file);
 
             // 发送上传请求
-            const response = await fetch(`${this.apiBaseUrl}/upload`, {
+            const response = await fetch(`${this.apiBaseUrl}/file`, {
                 method: 'POST',
                 body: formData
             });
@@ -1123,6 +1123,37 @@ class SuperBizAgentApp {
             this.isStreaming = false;
             this.showUploadOverlay(false);
             this.updateUI();
+        }
+    }
+
+    async deleteFile(filename) {
+        // 显示确认对话框
+        if (!confirm(`确定要删除文件 "${filename}" 吗？此操作不可恢复。`)) {
+            return;
+        }
+
+        try {
+            // 发送删除请求
+            const response = await fetch(`${this.apiBaseUrl}/file?fileName=${encodeURIComponent(filename)}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.code === 200 && data.data) {
+                this.showNotification(`文件 "${filename}" 删除成功`, 'success');
+                // 重新加载文件列表
+                this.loadKnowledgeBaseFiles();
+            } else {
+                throw new Error(data.message || '删除失败');
+            }
+        } catch (error) {
+            console.error('文件删除失败:', error);
+            this.showNotification('文件删除失败: ' + error.message, 'error');
         }
     }
 
@@ -1612,7 +1643,7 @@ class SuperBizAgentApp {
     // 加载知识库文件列表
     async loadKnowledgeBaseFiles() {
         try {
-            const response = await fetch(`${this.apiBaseUrl}/files`, {
+            const response = await fetch(`${this.apiBaseUrl}/file`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1673,8 +1704,20 @@ class SuperBizAgentApp {
                         <span class="file-name" title="${this.escapeHtml(file.fileName)}">${this.escapeHtml(file.fileName)}</span>
                         <span class="file-size">${this.formatFileSize(file.fileSize)}</span>
                     </div>
+                    <button class="file-delete-btn" data-filename="${this.escapeHtml(file.fileName)}" title="删除文件">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
                 </div>
             `;
+            
+            // 绑定删除按钮事件
+            const deleteBtn = fileItem.querySelector('.file-delete-btn');
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.deleteFile(file.fileName);
+            });
             
             this.knowledgeBaseList.appendChild(fileItem);
         });

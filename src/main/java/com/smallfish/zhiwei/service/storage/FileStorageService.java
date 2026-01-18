@@ -33,4 +33,11 @@ public interface FileStorageService {
      * @return 文件内容字符串
      */
     String readFileContent(String path);
+
+    /**
+     *  删除文集
+     * @param path 文件路径
+     * @return 返回删除结果
+     */
+    boolean delete(String path);
 }

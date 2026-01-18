@@ -92,4 +92,19 @@ public class KnowledgeBaseFacade {
         }
     }
 
+    /**
+     * 删除知识库文档（物理文件 + 向量数据）
+     */
+    public void deleteDocument(String fileName) {
+        // 1. 先删向量 (避免文件删了，向量删失败导致"幽灵知识")
+        try {
+            // 注意：这里需要传入存储在 Milvus 里的确切文件名
+            ingestionService.deleteVectorsByFileName(fileName);
+        } catch (Exception e) {
+            log.error("删除向量失败，但继续尝试删除物理文件", e);
+        }
+        // 2. 再删物理文件
+        fileService.delete(fileName);
+    }
+
 }
