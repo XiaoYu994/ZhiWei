@@ -42,10 +42,10 @@ public class VectorSearchService {
             // 1. 生成向量
             final List<Float> queryVector = embeddingService.generateEmbedding(query);
 
-            // 2. 构建搜索参数
+            // 2. 构建搜索参数 通向量通过了标准化，使用内积等同于余弦相似度。适合语义搜索。
             final SearchParam searchParam = SearchParam.newBuilder()
                     .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
-                    .withMetricType(MetricType.L2)
+                    .withMetricType(MetricType.IP)
                     .withLimit(limit)
                     .withFloatVectors(Collections.singletonList(queryVector))
                     .withVectorFieldName(BizKnowledge.FIELD_VECTOR)
