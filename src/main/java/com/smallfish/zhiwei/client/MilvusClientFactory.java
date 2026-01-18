@@ -189,7 +189,7 @@ public class MilvusClientFactory {
                 .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
                 .withFieldName(BizKnowledge.FIELD_VECTOR)
                 .withIndexType(IndexType.IVF_FLAT) // 倒排文件索引 整个向量空间切分成许多个“聚类单元
-                .withMetricType(MetricType.L2) // l2 欧式距离  计算两个点在多维空间中的直线距离。距离越小，相似度越高。
+                .withMetricType(MetricType.IP) // 内积算法。
                 .withExtraParam("{\"nlist\":1024}") // nlist 将数据分成多少个桶 nlist ≈ 4 * sqrt(N)
                 .withSyncMode(Boolean.FALSE)
                 .build();
