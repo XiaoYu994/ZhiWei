@@ -118,4 +118,11 @@ public class LocalFileStorageService implements FileStorageService {
             throw new RuntimeException("读取文件内容失败: " + e.getMessage(), e);
         }
     }
+    /**
+     * 读取文件内容 (Overload for File object)
+     */
+    public String readFileContent(File file) throws IOException {
+        return Files.readString(file.toPath());
+    }
+
 }

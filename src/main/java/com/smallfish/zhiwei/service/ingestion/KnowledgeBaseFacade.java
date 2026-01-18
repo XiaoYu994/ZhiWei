@@ -1,5 +1,6 @@
 package com.smallfish.zhiwei.service.ingestion;
 
+import com.smallfish.zhiwei.service.storage.impl.LocalFileStorageService;
 import com.smallfish.zhiwei.dto.resp.IndexingResultDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +20,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor // 自动生成构造函数注入
 public class KnowledgeBaseFacade {
-    private final LocalFileService fileService;
+    private final LocalFileStorageService fileService;
     private final VectorIngestionService ingestionService;
 
     @Value("${file.upload.path}")
