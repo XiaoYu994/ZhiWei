@@ -8,8 +8,10 @@ import com.smallfish.zhiwei.agent.tool.ClsLogQueryTools;
 import com.smallfish.zhiwei.agent.tool.ClsTopicTools;
 import com.smallfish.zhiwei.agent.tool.InternalDocsTools;
 import com.smallfish.zhiwei.agent.tool.PrometheusQueryTools;
+import com.smallfish.zhiwei.common.enums.ChatEventType;
 import com.smallfish.zhiwei.config.AiOpsPromptConfig;
 import com.smallfish.zhiwei.dto.req.AlertWebhookDTO;
+import com.smallfish.zhiwei.dto.resp.ChatRespDTO;
 import com.smallfish.zhiwei.service.base.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,8 +19,10 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 import java.util.List;
@@ -149,6 +153,112 @@ public class AutoOpsGraphService {
             // 异常释放锁
             redisTemplate.delete(lockKey);
         }
+    }
+
+    /**
+     * 流式排查入口 (供 AiOpsController 调用)
+     * 使用 Graph 模式进行故障诊断
+     */
+    public Flux<ServerSentEvent<ChatRespDTO>> streamTroubleshooting(String query, String conversationId) {
+        return Flux.create(sink -> {
+            String traceId = UUID.randomUUID().toString().substring(0, 8);
+            log.info("[{}] Graph模式开始流式排查: {}", traceId, query);
+
+            // 异步执行 Graph，避免阻塞主线程
+            new Thread(() -> {
+                try {
+                    // 发送初始消息
+                    sink.next(buildSSEResponse(conversationId, "收到排查请求，正在启动 Graph 引擎进行分析...", null));
+
+                    // 1. 构建 Graph 节点 (Agents)
+                    // --- Node A: Planner (大脑) ---
+                    ReactAgent plannerNode = ReactAgent.builder()
+                            .name("Planner")
+                            .description("负责分析现状，制定排查计划。")
+                            .model(chatModel)
+                            .systemPrompt(promptConfig.getPlannerPrompt())
+                            .build();
+
+                    // --- Node B: Executor (手脚) ---
+                    ReactAgent executorNode = ReactAgent.builder()
+                            .name("Executor")
+                            .description("负责执行具体的查询任务。")
+                            .model(chatModel)
+                            .systemPrompt(promptConfig.getExecutorPrompt())
+                            .tools(ToolCallbacks.from(prometheusTools, clsTools, clsTopicTools, internalDocsTools))
+                            .build();
+
+                    // --- Router: Supervisor (大管家) ---
+                    SupervisorAgent supervisor = SupervisorAgent.builder()
+                            .name("Supervisor")
+                            .model(chatModel)
+                            .subAgents(List.of(plannerNode, executorNode))
+                            .systemPrompt(promptConfig.getSupervisorPrompt())
+                            .build();
+
+                    // 2. 构造输入
+                    String inputContext = "用户查询: " + query + "\n\n请开始排查。";
+
+                    // 3. 启动图流转 (Invoke)
+                    sink.next(buildSSEResponse(conversationId, "Graph 引擎已启动，正在进行多智能体协作分析...", null));
+                    
+                    Optional<OverAllState> result = supervisor.invoke(inputContext);
+
+                    // 4. 处理最终结果
+                    if (result.isPresent()) {
+                        OverAllState state = result.get();
+                        Optional<List> messagesOpt = state.value("messages", List.class);
+
+                        if (messagesOpt.isPresent()) {
+                            List<?> rawMessages = messagesOpt.get();
+                            if (!rawMessages.isEmpty()) {
+                                Object lastObj = rawMessages.get(rawMessages.size() - 1);
+                                if (lastObj instanceof Message message) {
+                                    if (message instanceof AssistantMessage) {
+                                        String finalReport = message.getText();
+                                        // 发送最终报告
+                                        sink.next(buildSSEResponse(conversationId, "\n\n" + finalReport, null));
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        sink.next(buildSSEResponse(conversationId, "Graph 执行未返回有效结果", null));
+                    }
+
+                    // 发送结束信号
+                    sink.next(ServerSentEvent.<ChatRespDTO>builder()
+                            .event("message")
+                            .data(ChatRespDTO.builder()
+                                    .conversationId(conversationId)
+                                    .answer("")
+                                    .type(ChatEventType.DONE.getValue())
+                                    .build())
+                            .build());
+                    
+                    sink.complete();
+
+                } catch (Exception e) {
+                    log.error("[{}] Graph模式流式排查异常", traceId, e);
+                    sink.next(buildSSEResponse(conversationId, "诊断过程出现错误: " + e.getMessage(), null));
+                    sink.error(e);
+                }
+            }).start();
+        });
+    }
+
+    private ServerSentEvent<ChatRespDTO> buildSSEResponse(String conversationId, String content, List<String> details) {
+        ChatRespDTO resp = ChatRespDTO.builder()
+                .conversationId(conversationId)
+                .answer(content)
+                .type(ChatEventType.CONTENT.getValue())
+                .details(details)
+                .build();
+
+        return ServerSentEvent.<ChatRespDTO>builder()
+                .event("message")
+                .data(resp)
+                .build();
     }
 
     private String buildAlertContext(String name, String instance, String severity, String desc, String region) {
