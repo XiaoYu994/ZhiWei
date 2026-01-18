@@ -1,6 +1,6 @@
 package com.smallfish.zhiwei.service.ingestion;
 
-import com.smallfish.zhiwei.config.DocumentChunkConfig;
+import com.smallfish.zhiwei.config.DocumentChunkProperties;
 import com.smallfish.zhiwei.dto.model.DocumentChunkDTO;
 import jakarta.annotation.Resource;
 import lombok.AllArgsConstructor;
@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 public class DocumentChunkService {
 
     @Resource
-    private DocumentChunkConfig chunkConfig;
+    private DocumentChunkProperties chunkConfig;
 
     /**
      * 智能分片文档

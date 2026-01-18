@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 @Data
 @Configuration
 @ConfigurationProperties(prefix = "document.chunk")
-public class DocumentChunkConfig {
+public class DocumentChunkProperties {
 
     /*
     *  每个分片的最大字符数
