@@ -1,21 +1,21 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
-  # 全局默认地域
   external_labels:
     region: 'ap-guangzhou'
+
 rule_files:
   - "rules.yml"
-# 配置 Alertmanager (报警发送给谁)
+
+# 配置 Alertmanager
 alerting:
   alertmanagers:
     - static_configs:
-        # Windows Docker 下，必须用 host.docker.internal
-        # 即使你还没启动 Alertmanager 容器，写这个也不会报错，只是发不出去而已
-        - targets: ['host.docker.internal:9093']
+        # Prometheus 和 Alertmanager 都在 Docker 网络中，直接用服务名
+        - targets: ['alertmanager:9093']
 
 scrape_configs:
-  # 1. 监控 Prometheus 自身 (容器内部 localhost 是 OK 的)
+  # 1. 监控 Prometheus 自身
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
@@ -23,19 +23,19 @@ scrape_configs:
   # 2. 监控宿主机 (Node Exporter)
   - job_name: 'linux-server'
     static_configs:
-      # Windows Docker 环境下，用 host.docker.internal 指代本机
-      - targets: ['host.docker.internal:9100']
+      # Node Exporter 也在 Docker 网络中，直接用服务名
+      - targets: ['node-exporter:9100']
         labels:
-          host_alias: 'dev-server-01'
-          region: 'ap-chongqing'  # 服务所在地域
+          host_alias: 'prod-server'
+          region: 'ap-chongqing'
 
   # 3. 监控 Java 应用 (ZhiWei Agent)
   - job_name: 'zhiwei-agent'
-    # 标准指标路径是 /actuator/prometheus
     metrics_path: '/actuator/prometheus'
     static_configs:
+      # Java 应用运行在宿主机，通过 host.docker.internal 访问
+      # (前提：docker-compose.yml 中配置了 extra_hosts)
       - targets: ['host.docker.internal:9901']
         labels:
-          # 告诉 AI，这个服务的日志在重庆的 CLS 里
           region: 'ap-chongqing'
           env: 'prod'
