@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -25,4 +27,9 @@ public class ChatRespDTO {
     *  消息类型
     * */
     private String  type;
+
+    /*
+    * 排查步骤列表
+    * */
+    private List<String> details;
 }

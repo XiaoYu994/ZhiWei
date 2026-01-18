@@ -79,7 +79,7 @@ tencent:
 
 # Prometheus 监控配置
 prometheus:
-  mock-enabled: true
+  mock-enabled: false
   # 这里的 IP 必须是刚才部署 Prometheus 的机器 IP
   endpoint: ${PROMETHEUS_URL}
   timeout: 10 # 超时时间(秒)

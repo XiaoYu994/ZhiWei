@@ -6,14 +6,20 @@ import cn.hutool.json.JSONUtil;
 import com.smallfish.zhiwei.agent.core.ExecutorAgent;
 import com.smallfish.zhiwei.agent.core.PlannerAgent;
 import com.smallfish.zhiwei.agent.core.ReviewerAgent;
+import com.smallfish.zhiwei.common.enums.ChatEventType;
 import com.smallfish.zhiwei.dto.req.AlertWebhookDTO;
+import com.smallfish.zhiwei.dto.resp.ChatRespDTO;
 import com.smallfish.zhiwei.service.base.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -28,8 +34,8 @@ import java.util.concurrent.TimeUnit;
 public class AutoOpsService {
 
     private final NotificationService notificationService;
-
     private final StringRedisTemplate redisTemplate;
+    private final AutoOpsGraphService autoOpsGraphService;
 
     // 注入 Agents
     private final PlannerAgent plannerAgent;
@@ -41,7 +47,7 @@ public class AutoOpsService {
     private static final String LOCK_KEY_PREFIX = "zhiwei:ops:lock:";
 
     /**
-     * 核心排查逻辑 - 异步执行
+     * 核心排查逻辑 - 异步执行 (Webhook 调用)
      */
     @Async("aiTaskExecutor")
     public void processAlertAsync(AlertWebhookDTO.Alert alert) {
@@ -80,7 +86,6 @@ public class AutoOpsService {
             log.info("[{}] 进入 Plan 阶段...", traceId);
             // 提示词增强：强制要求返回 JSON 格式
             String planPrompt = alertContext + "\n\n请作为高级 SRE，列出排查此问题的 2-4 个具体步骤。请仅返回纯 JSON 字符串数组，例如：[\"查询CPU使用率\", \"检索最近5分钟错误日志\"]";
-
             String planJsonRaw = plannerAgent.chat(planPrompt, conversationId);
             log.info("[{}] Planner 输出: {}", traceId, planJsonRaw);
 
@@ -109,7 +114,6 @@ public class AutoOpsService {
                         executionHistory, // 传入历史
                         currentStep
                 );
-
                 String result = executorAgent.chat(executionPrompt, conversationId);
 
                 // 记录结果
@@ -152,8 +156,135 @@ public class AutoOpsService {
     }
 
     /**
-     * 辅助方法：构建告警上下文文本
+     * 流式排查入口 (供 AiOpsController 调用)
      */
+    public Flux<ServerSentEvent<ChatRespDTO>> streamTroubleshooting(String query, String conversationId) {
+        return Flux.create(sink -> {
+            String traceId = UUID.randomUUID().toString().substring(0, 8);
+            log.info("[{}] 开始流式排查: {}", traceId, query);
+
+            try {
+                // 发送初始消息
+                sink.next(buildSSEResponse(conversationId, "收到排查请求，正在使用Multi-Agent模式进行分析...", null));
+
+                String alertContext = "用户查询: " + query;
+
+                // Phase 1: Plan
+                String planPrompt = alertContext + "\n\n请作为高级 SRE，列出排查此问题的 2-4 个具体步骤。请仅返回纯 JSON 字符串数组，例如：[\"查询CPU使用率\", \"检索最近5分钟错误日志\"]";
+                String planJsonRaw = plannerAgent.chat(planPrompt, conversationId);
+                JSONArray steps = safeParseJsonArray(planJsonRaw);
+
+                if (steps.isEmpty()) {
+                    sink.next(buildSSEResponse(conversationId, "无法生成排查计划，请提供更多信息。", null));
+                    sink.complete();
+                    return;
+                }
+
+                List<String> stepList = new ArrayList<>();
+                for (Object step : steps) {
+                    stepList.add(step.toString());
+                }
+                sink.next(buildSSEResponse(conversationId, "已生成排查计划，开始执行...", stepList));
+
+                // Phase 2: Execute
+                StringBuilder executionHistory = new StringBuilder();
+                executionHistory.append("###  自动化排查记录\n\n");
+
+                for (int i = 0; i < steps.size(); i++) {
+                    // 强制延迟 1 秒，测试流式效果 (防止后端处理太快导致前端渲染看起来像一次性)
+                    try { Thread.sleep(1000); } catch (InterruptedException e) {}
+
+                    String currentStep = steps.getStr(i);
+                    sink.next(buildSSEResponse(conversationId, String.format("正在执行步骤 %d/%d: %s", i + 1, steps.size(), currentStep), null));
+
+                    String executionPrompt = String.format(
+                            "【当前问题】\n%s\n\n【已执行的历史信息】\n%s\n\n【当前任务】\n请执行步骤：%s\n请调用相应工具获取数据，并简要总结发现。",
+                            alertContext,
+                            executionHistory,
+                            currentStep
+                    );
+
+                    String result = executorAgent.chat(executionPrompt, conversationId);
+
+                    executionHistory.append(String.format("**步骤 %d**: %s\n", i + 1, currentStep));
+                    executionHistory.append(String.format("> **结果**: %s\n\n", result));
+
+                    sink.next(buildSSEResponse(conversationId, String.format("步骤 %d 完成: %s\n\n", i + 1, result), null));
+                }
+
+                // Phase 3: Review
+                sink.next(buildSSEResponse(conversationId, "所有步骤执行完毕，正在生成最终报告...", null));
+
+                String reviewPrompt = String.format(
+                        "【原始问题】\n%s\n\n【排查全过程】\n%s\n\n请根据上述证据，生成一份 Markdown 格式的最终诊断报告。包含：1. 根因分析 2. 处理建议 3. 风险评估。",
+                        alertContext,
+                        executionHistory
+                );
+
+                StringBuilder finalReportBuilder = new StringBuilder();
+
+                // 使用 CountDownLatch 或 blockLast 来保持同步逻辑 (因为外层是同步的流)
+                // 或者直接利用 Flux 桥接
+                reviewerAgent.streamChat(reviewPrompt, conversationId)
+                        .doOnNext(token -> {
+                            // 收到一个字，就发一个 SSE 事件
+                            finalReportBuilder.append(token);
+                            ChatRespDTO chunk = ChatRespDTO.builder()
+                                    .conversationId(conversationId)
+                                    .answer(token) // 每次只发一个字
+                                    .type(ChatEventType.CONTENT.getValue())
+                                    .build();
+
+                            sink.next(ServerSentEvent.builder(chunk).build());
+                        })
+                        .doOnError(e -> log.error("Reviewer 流式生成异常", e))
+                        .blockLast(); // 阻塞直到流结束，保证代码按顺序往下走
+
+                // 记录完整报告用于后续存档（如果需要）
+                String finalReport = finalReportBuilder.toString();
+
+                // Send DONE signal
+                sink.next(ServerSentEvent.<ChatRespDTO>builder()
+                        .event("message")
+                        .data(ChatRespDTO.builder()
+                                .conversationId(conversationId)
+                                .answer("")
+                                .type(ChatEventType.DONE.getValue())
+                                .build())
+                        .build());
+
+                sink.complete();
+
+            } catch (Exception e) {
+                log.error("[{}] 模式流式排查异常", traceId, e);
+                sink.next(buildSSEResponse(conversationId, "诊断过程出现错误: " + e.getMessage(), null));
+                sink.next(ServerSentEvent.<ChatRespDTO>builder()
+                        .event("message")
+                        .data(ChatRespDTO.builder()
+                                .conversationId(conversationId)
+                                .answer("")
+                                .type(ChatEventType.DONE.getValue())
+                                .build())
+                        .build());
+                sink.complete();
+            }
+        });
+    }
+
+    private ServerSentEvent<ChatRespDTO> buildSSEResponse(String conversationId, String content, List<String> details) {
+        ChatRespDTO resp = ChatRespDTO.builder()
+                .conversationId(conversationId)
+                .answer(content)
+                .type(ChatEventType.CONTENT.getValue())
+                .details(details)
+                .build();
+
+        return ServerSentEvent.<ChatRespDTO>builder()
+                .event("message")
+                .data(resp)
+                .build();
+    }
+
     private String buildAlertContext(String name, String instance, String severity, String desc, String region) {
         return String.format(
                 "**告警快照**\n" +

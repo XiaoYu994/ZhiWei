@@ -140,4 +140,16 @@ public class ChatService {
 
         return finalStream;
     }
+    /**
+     * 层流式接口 (供 BaseAgent 内部使用)
+     * 只返回纯文本内容，不封装 SSE，方便上层业务自由处理
+     */
+    public Flux<String> streamChatContent(String question, String conversationId, String systemPrompt) {
+        return chatClient.prompt()
+                .system(systemPrompt) // 1. 注入 Agent 的人设
+                .user(question)
+                .advisors(a -> a.param(MessageWindowChatMemory.CONVERSATION_ID, conversationId))
+                .stream()
+                .content(); // 2. 直接返回内容流 (Flux<String>)
+    }
 }
