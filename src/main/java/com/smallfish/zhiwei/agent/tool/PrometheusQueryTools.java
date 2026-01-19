@@ -5,6 +5,7 @@ import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.json.JSONUtil;
 import com.smallfish.zhiwei.dto.resp.PrometheusResponseDTO;
+import com.smallfish.zhiwei.utils.LttbUtils; // Added import
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -164,33 +165,28 @@ public class PrometheusQueryTools implements AgentTools{
             sb.append(String.format("- 实例/标签: %s\n", tags));
             sb.append("  数据点(时间:数值): ["); // 提示 AI 格式是 时间:数值
 
-            List<String> simplePoints = item.getValues().stream().map(v -> {
-                // 1. 处理时间戳 (Prometheus 返回的是秒，可能是浮点数形式，转为 long)
-                // 使用 BigDecimal 防止精度丢失或格式错误
-                long timestampSeconds = new BigDecimal(v.get(0).toString()).longValue();
+            // 1. 转换为 LTTB Point 对象
+            List<LttbUtils.Point> rawPoints = item.getValues().stream().map(v -> {
+                double timestamp = new BigDecimal(v.get(0).toString()).doubleValue();
+                double value = Double.parseDouble(v.get(1).toString());
+                return new LttbUtils.Point(timestamp, value);
+            }).collect(Collectors.toList());
 
-                // 2. 格式化时间 (秒 -> 毫秒 -> HH:mm)
-                String timeStr = TIME_FORMATTER.format(Instant.ofEpochSecond(timestampSeconds));
+            // 2. 执行 LTTB 降采样 (保留 20 个关键点)
+            List<LttbUtils.Point> sampledPoints = LttbUtils.downsample(rawPoints, 20);
 
-                // 3. 处理数值 (保留2位小数)
-                String value = v.get(1).toString();
-                if (value.contains(".")) {
-                    try {
-                        double d = Double.parseDouble(value);
-                        value = String.format("%.2f", d);
-                    } catch (NumberFormatException ignored) {}
-                }
-
-                // 4. 返回 "时间:数值" 格式 (例如 14:05:95.5)
-                // 这种格式对 AI 来说既省 Token 又清晰
-                return timeStr + ":" + value;
+            // 3. 格式化输出
+            List<String> simplePoints = sampledPoints.stream().map(p -> {
+                String timeStr = TIME_FORMATTER.format(Instant.ofEpochSecond((long) p.getX()));
+                String valueStr = String.format("%.2f", p.getY());
+                return timeStr + ":" + valueStr;
             }).collect(Collectors.toList());
 
             // 拼接
             sb.append(String.join(", ", simplePoints));
             sb.append("]\n");
         }
-        sb.append("(注：数据格式为 HH:mm:数值，已按趋势降采样)");
+        sb.append("(注：数据格式为 HH:mm:数值，已使用 LTTB 算法降采样至 20 个关键点)");
         return sb.toString();
     }
 }
