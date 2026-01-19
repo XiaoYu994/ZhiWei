@@ -18,8 +18,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -164,7 +162,7 @@ public class AutoOpsService {
 
             try {
                 // 发送初始消息
-                sink.next(buildSSEResponse(conversationId, "收到排查请求，正在使用Multi-Agent模式进行分析...", null));
+                sink.next(buildSSEResponse(conversationId, "收到排查请求，正在使用Multi-Agent模式进行分析..."));
 
                 String alertContext = "用户查询: " + query;
 
@@ -174,17 +172,10 @@ public class AutoOpsService {
                 JSONArray steps = safeParseJsonArray(planJsonRaw);
 
                 if (steps.isEmpty()) {
-                    sink.next(buildSSEResponse(conversationId, "无法生成排查计划，请提供更多信息。", null));
+                    sink.next(buildSSEResponse(conversationId, "无法生成排查计划，请提供更多信息。"));
                     sink.complete();
                     return;
                 }
-
-                List<String> stepList = new ArrayList<>();
-                for (Object step : steps) {
-                    stepList.add(step.toString());
-                }
-                sink.next(buildSSEResponse(conversationId, "已生成排查计划，开始执行...", stepList));
-
                 // Phase 2: Execute
                 StringBuilder executionHistory = new StringBuilder();
                 executionHistory.append("###  自动化排查记录\n\n");
@@ -194,7 +185,7 @@ public class AutoOpsService {
                     try { Thread.sleep(1000); } catch (InterruptedException e) {}
 
                     String currentStep = steps.getStr(i);
-                    sink.next(buildSSEResponse(conversationId, String.format("正在执行步骤 %d/%d: %s", i + 1, steps.size(), currentStep), null));
+                    sink.next(buildSSEResponse(conversationId, String.format("正在执行步骤 %d/%d: %s", i + 1, steps.size(), currentStep)));
 
                     String executionPrompt = String.format(
                             "【当前问题】\n%s\n\n【已执行的历史信息】\n%s\n\n【当前任务】\n请执行步骤：%s\n请调用相应工具获取数据，并简要总结发现。",
@@ -208,11 +199,11 @@ public class AutoOpsService {
                     executionHistory.append(String.format("**步骤 %d**: %s\n", i + 1, currentStep));
                     executionHistory.append(String.format("> **结果**: %s\n\n", result));
 
-                    sink.next(buildSSEResponse(conversationId, String.format("步骤 %d 完成: %s\n\n", i + 1, result), null));
+                    sink.next(buildSSEResponse(conversationId, String.format("步骤 %d 完成: %s\n\n", i + 1, result)));
                 }
 
                 // Phase 3: Review
-                sink.next(buildSSEResponse(conversationId, "所有步骤执行完毕，正在生成最终报告...", null));
+                sink.next(buildSSEResponse(conversationId, "所有步骤执行完毕，正在生成最终报告..."));
 
                 String reviewPrompt = String.format(
                         "【原始问题】\n%s\n\n【排查全过程】\n%s\n\n请根据上述证据，生成一份 Markdown 格式的最终诊断报告。包含：1. 根因分析 2. 处理建议 3. 风险评估。",
@@ -256,7 +247,7 @@ public class AutoOpsService {
 
             } catch (Exception e) {
                 log.error("[{}] 模式流式排查异常", traceId, e);
-                sink.next(buildSSEResponse(conversationId, "诊断过程出现错误: " + e.getMessage(), null));
+                sink.next(buildSSEResponse(conversationId, "诊断过程出现错误: " + e.getMessage()));
                 sink.next(ServerSentEvent.<ChatRespDTO>builder()
                         .event("message")
                         .data(ChatRespDTO.builder()
@@ -270,12 +261,11 @@ public class AutoOpsService {
         });
     }
 
-    private ServerSentEvent<ChatRespDTO> buildSSEResponse(String conversationId, String content, List<String> details) {
+    private ServerSentEvent<ChatRespDTO> buildSSEResponse(String conversationId, String content) {
         ChatRespDTO resp = ChatRespDTO.builder()
                 .conversationId(conversationId)
                 .answer(content)
                 .type(ChatEventType.CONTENT.getValue())
-                .details(details)
                 .build();
 
         return ServerSentEvent.<ChatRespDTO>builder()

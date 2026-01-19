@@ -1,6 +1,7 @@
 package com.smallfish.zhiwei.service.chat;
 
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
+import com.alibaba.cloud.ai.graph.CompileConfig;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import com.alibaba.cloud.ai.graph.agent.flow.agent.SupervisorAgent;
@@ -8,10 +9,8 @@ import com.smallfish.zhiwei.agent.tool.ClsLogQueryTools;
 import com.smallfish.zhiwei.agent.tool.ClsTopicTools;
 import com.smallfish.zhiwei.agent.tool.InternalDocsTools;
 import com.smallfish.zhiwei.agent.tool.PrometheusQueryTools;
-import com.smallfish.zhiwei.common.enums.ChatEventType;
 import com.smallfish.zhiwei.config.AiOpsPromptConfig;
 import com.smallfish.zhiwei.dto.req.AlertWebhookDTO;
-import com.smallfish.zhiwei.dto.resp.ChatRespDTO;
 import com.smallfish.zhiwei.service.base.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,10 +18,8 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 import java.util.List;
@@ -49,6 +46,10 @@ public class AutoOpsGraphService {
     private final ClsTopicTools clsTopicTools;
     private final InternalDocsTools internalDocsTools;
 
+    private static final CompileConfig GRAPH_COMPILE_CONFIG = CompileConfig.builder()
+            .recursionLimit(20) // 允许足够的思考步数
+            .build();
+    private static final String STATE_KEY_MESSAGES = "messages";
     // Graph 模式配置
     private static final String LOCK_KEY_PREFIX = "zhiwei:ops:graph:lock:";
 
@@ -118,7 +119,7 @@ public class AutoOpsGraphService {
                 OverAllState state = result.get();
 
                 // "messages" 是 Graph 框架默认存储对话历史的 key
-                Optional<List> messagesOpt = state.value("messages", List.class);
+                Optional<List> messagesOpt = state.value(STATE_KEY_MESSAGES, List.class);
 
                 if (messagesOpt.isPresent()) {
                     List<?> rawMessages = messagesOpt.get();
@@ -156,109 +157,69 @@ public class AutoOpsGraphService {
     }
 
     /**
-     * 流式排查入口 (供 AiOpsController 调用)
-     * 使用 Graph 模式进行故障诊断
+     * 核心方法：执行 Graph 编排，同步等待结果
+     * @param query 用户的问题
+     * @return Graph 的最终状态
      */
-    public Flux<ServerSentEvent<ChatRespDTO>> streamTroubleshooting(String query, String conversationId) {
-        return Flux.create(sink -> {
-            String traceId = UUID.randomUUID().toString().substring(0, 8);
-            log.info("[{}] Graph模式开始流式排查: {}", traceId, query);
+    public Optional<OverAllState> executeAnalysis(String query) {
+        try {
+            // 1. 构建 Agents (Planner & Executor)
+            ReactAgent plannerNode = ReactAgent.builder()
+                    .name("Planner")
+                    .description("负责分析现状，制定排查计划。")
+                    .model(chatModel)
+                    .systemPrompt(promptConfig.getPlannerPrompt())
+                    .build();
 
-            // 异步执行 Graph，避免阻塞主线程
-            new Thread(() -> {
-                try {
-                    // 发送初始消息
-                    sink.next(buildSSEResponse(conversationId, "收到排查请求，正在启动 Graph 引擎进行分析...", null));
+            ReactAgent executorNode = ReactAgent.builder()
+                    .name("Executor")
+                    .description("负责执行具体的查询任务。")
+                    .model(chatModel)
+                    .systemPrompt(promptConfig.getExecutorPrompt())
+                    .tools(ToolCallbacks.from(prometheusTools, clsTools, clsTopicTools, internalDocsTools))
+                    .build();
 
-                    // 1. 构建 Graph 节点 (Agents)
-                    // --- Node A: Planner (大脑) ---
-                    ReactAgent plannerNode = ReactAgent.builder()
-                            .name("Planner")
-                            .description("负责分析现状，制定排查计划。")
-                            .model(chatModel)
-                            .systemPrompt(promptConfig.getPlannerPrompt())
-                            .build();
+            // 2. 构建 Supervisor
+            SupervisorAgent supervisor = SupervisorAgent.builder()
+                    .name("Supervisor")
+                    .model(chatModel)
+                    .subAgents(List.of(plannerNode, executorNode))
+                    .systemPrompt(promptConfig.getSupervisorPrompt())
+                    .compileConfig(GRAPH_COMPILE_CONFIG)
+                    .build();
 
-                    // --- Node B: Executor (手脚) ---
-                    ReactAgent executorNode = ReactAgent.builder()
-                            .name("Executor")
-                            .description("负责执行具体的查询任务。")
-                            .model(chatModel)
-                            .systemPrompt(promptConfig.getExecutorPrompt())
-                            .tools(ToolCallbacks.from(prometheusTools, clsTools, clsTopicTools, internalDocsTools))
-                            .build();
+            // 3. 构造输入上下文
+            String inputContext = "用户查询: " + query + "\n\n请严格按照《告警分析报告》模板进行排查和输出。";
 
-                    // --- Router: Supervisor (大管家) ---
-                    SupervisorAgent supervisor = SupervisorAgent.builder()
-                            .name("Supervisor")
-                            .model(chatModel)
-                            .subAgents(List.of(plannerNode, executorNode))
-                            .systemPrompt(promptConfig.getSupervisorPrompt())
-                            .build();
+            // 4.  启动执行 (这里是阻塞/同步的，直到 Graph 跑完)
+            log.info("Graph 开始执行...");
+            return supervisor.invoke(inputContext);
 
-                    // 2. 构造输入
-                    String inputContext = "用户查询: " + query + "\n\n请开始排查。";
-
-                    // 3. 启动图流转 (Invoke)
-                    sink.next(buildSSEResponse(conversationId, "Graph 引擎已启动，正在进行多智能体协作分析...", null));
-                    
-                    Optional<OverAllState> result = supervisor.invoke(inputContext);
-
-                    // 4. 处理最终结果
-                    if (result.isPresent()) {
-                        OverAllState state = result.get();
-                        Optional<List> messagesOpt = state.value("messages", List.class);
-
-                        if (messagesOpt.isPresent()) {
-                            List<?> rawMessages = messagesOpt.get();
-                            if (!rawMessages.isEmpty()) {
-                                Object lastObj = rawMessages.get(rawMessages.size() - 1);
-                                if (lastObj instanceof Message message) {
-                                    if (message instanceof AssistantMessage) {
-                                        String finalReport = message.getText();
-                                        // 发送最终报告
-                                        sink.next(buildSSEResponse(conversationId, "\n\n" + finalReport, null));
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        sink.next(buildSSEResponse(conversationId, "Graph 执行未返回有效结果", null));
-                    }
-
-                    // 发送结束信号
-                    sink.next(ServerSentEvent.<ChatRespDTO>builder()
-                            .event("message")
-                            .data(ChatRespDTO.builder()
-                                    .conversationId(conversationId)
-                                    .answer("")
-                                    .type(ChatEventType.DONE.getValue())
-                                    .build())
-                            .build());
-                    
-                    sink.complete();
-
-                } catch (Exception e) {
-                    log.error("[{}] Graph模式流式排查异常", traceId, e);
-                    sink.next(buildSSEResponse(conversationId, "诊断过程出现错误: " + e.getMessage(), null));
-                    sink.error(e);
-                }
-            }).start();
-        });
+        } catch (Exception e) {
+            log.error("Graph 执行失败", e);
+            return Optional.empty();
+        }
     }
 
-    private ServerSentEvent<ChatRespDTO> buildSSEResponse(String conversationId, String content, List<String> details) {
-        ChatRespDTO resp = ChatRespDTO.builder()
-                .conversationId(conversationId)
-                .answer(content)
-                .type(ChatEventType.CONTENT.getValue())
-                .details(details)
-                .build();
+    /**
+     * 从最终状态中提取 Markdown 报告
+     * 对应你提供的示例中的 extractFinalReport
+     */
+    public String extractFinalReport(OverAllState state) {
+        // 尝试获取 messages 列表（Graph 的标准存储）
+        Optional<List> messagesOpt = state.value(STATE_KEY_MESSAGES, List.class);
 
-        return ServerSentEvent.<ChatRespDTO>builder()
-                .event("message")
-                .data(resp)
-                .build();
+        if (messagesOpt.isPresent()) {
+            List<?> messages = messagesOpt.get();
+            if (!messages.isEmpty()) {
+                // 获取最后一条消息，通常是 Supervisor 总结后的最终报告
+                Object lastMsg = messages.get(messages.size() - 1);
+                if (lastMsg instanceof AssistantMessage am) {
+                    return stripMarkdownTags(am.getText());
+                }
+            }
+        }
+        return "未能生成有效报告，请检查日志。";
     }
 
     private String buildAlertContext(String name, String instance, String severity, String desc, String region) {
@@ -281,18 +242,12 @@ public class AutoOpsGraphService {
     private String stripMarkdownTags(String content) {
         if (content == null) return "";
         String result = content.trim();
+        // 移除 markdown 代码块标记，但保留内容
+        if (result.startsWith("```markdown")) result = result.substring(11);
+        else if (result.startsWith("```json")) result = result.substring(7);
+        else if (result.startsWith("```")) result = result.substring(3);
 
-        // 去掉开头的 ```markdown 或 ```
-        if (result.startsWith("```markdown")) {
-            result = result.substring(11);
-        } else if (result.startsWith("```")) {
-            result = result.substring(3);
-        }
-
-        // 去掉结尾的 ```
-        if (result.endsWith("```")) {
-            result = result.substring(0, result.length() - 3);
-        }
+        if (result.endsWith("```")) result = result.substring(0, result.length() - 3);
 
         return result.trim();
     }

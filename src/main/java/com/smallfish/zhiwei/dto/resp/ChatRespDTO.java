@@ -5,8 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 /*
 *  对话 agent 响应参数
 * */
@@ -31,8 +29,4 @@ public class ChatRespDTO {
     * */
     private String  type;
 
-    /*
-    * 排查步骤列表
-    * */
-    private List<String> details;
 }

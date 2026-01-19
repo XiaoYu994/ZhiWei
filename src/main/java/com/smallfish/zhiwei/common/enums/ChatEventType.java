@@ -18,6 +18,11 @@ public enum ChatEventType {
      */
     TOOL_LOG("tool_log"),
 
+    /*
+    心跳
+    * */
+    KEEP_ALIVE("keep_alive"),
+
     /**
      * 错误信息
      */
