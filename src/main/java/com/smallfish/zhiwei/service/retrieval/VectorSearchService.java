@@ -80,27 +80,28 @@ public class VectorSearchService {
                 String contentStr = (contents != null && i < contents.size()) ? String.valueOf(contents.get(i)) : "";
                 String sourceStr = (sources != null && i < sources.size()) ? String.valueOf(sources.get(i)) : "";
                 // 设置元数据
+                Map<String, Object> metaMap = Collections.emptyMap();
                 if (metadatas != null && i < metadatas.size()) {
                     Object metaObj = metadatas.get(i);
-                    Map<String, Object> metaMap = null;
-                    if (metaObj instanceof JsonObject) {
-                        // 场景 A: SDK 返回了 Gson 对象 (最常见)
-                        metaMap = gson.fromJson((JsonObject) metaObj, mapType);
-                    } else if (metaObj instanceof String) {
-                        // 场景 B: SDK 返回了 JSON 字符串 (兼容旧版或特殊配置)
-                        metaMap = gson.fromJson((String) metaObj, mapType);
-                    } else if (metaObj instanceof Map) {
-                        // 场景 C: SDK 已经转成了 Map (少见，但防御一下)
-                        metaMap = (Map<String, Object>) metaObj;
+                    try {
+                        if (metaObj instanceof JsonObject) {
+                            metaMap = gson.fromJson((JsonObject) metaObj, mapType);
+                        } else if (metaObj instanceof String) {
+                            metaMap = gson.fromJson((String) metaObj, mapType);
+                        } else if (metaObj instanceof Map) {
+                            metaMap = (Map<String, Object>) metaObj;
+                        }
+                    } catch (Exception e) {
+                        log.warn("Metadata 解析失败，ID: {}", scores.get(i).getStrID());
                     }
-                    results.add(SearchResultDTO.builder()
-                            .id(scores.get(i).getStrID())
-                            .score(scores.get(i).getScore())
-                            .content(contentStr)
-                            .source(sourceStr)
-                            .metadata(metaMap)
-                            .build());
                 }
+                results.add(SearchResultDTO.builder()
+                        .id(scores.get(i).getStrID())
+                        .score(scores.get(i).getScore())
+                        .content(contentStr)
+                        .source(sourceStr)
+                        .metadata(metaMap)
+                        .build());
             }
             log.info("搜索完成, 找到 {} 个相似文档", results.size());
             return results;
