@@ -34,13 +34,14 @@ public class InternalDocsTools implements AgentTools {
             当你需要了解公司文档中存储的内部流程、最佳实践或逐步指南时，这非常有用。
             """)
     public String queryInternalDocs(
-            @ToolParam(description = "用于检索文档的关键词或问题摘要") String query) {
+            @ToolParam(description = "用于检索文档的关键词或问题摘要") String query,
+            @ToolParam(description = "可选：过滤表达式 (Milvus DSL)，例如 source == 'filename.pdf'", required = false) String filter) {
 
         try {
-            log.info("Agent 正在调用 RAG 检索服务 问题: {}", query);
+            log.info("Agent 正在调用 RAG 检索服务 问题: {}, 过滤: {}", query, filter);
 
             // 召回 - 重排 - 精选
-            List<SearchResultDTO> results = retrievalService.retrieve(query);
+            List<SearchResultDTO> results = retrievalService.retrieve(query, filter);
 
             if (results == null || results.isEmpty()) {
                 log.warn("RAG 服务未返回任何有效文档");

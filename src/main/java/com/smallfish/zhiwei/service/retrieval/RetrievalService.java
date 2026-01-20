@@ -36,8 +36,18 @@ public class RetrievalService {
      * @return 排序后且包含元数据的文档列表
      */
     public List<SearchResultDTO> retrieve(String query) {
+        return retrieve(query, null);
+    }
+
+    /**
+     * 执行完整的检索流程 (带过滤)
+     * @param query 用户提问
+     * @param filterExpr 过滤表达式 (Milvus DSL)
+     * @return 排序后且包含元数据的文档列表
+     */
+    public List<SearchResultDTO> retrieve(String query, String filterExpr) {
         // 1. Recall (向量召回) - 快速获取候选集
-        List<SearchResultDTO> recallResults = vectorSearchService.search(query, recallTopK);
+        List<SearchResultDTO> recallResults = vectorSearchService.search(query, recallTopK, filterExpr);
 
         if (recallResults == null || recallResults.isEmpty()) {
             log.info("向量库未召回到任何数据，直接返回空");

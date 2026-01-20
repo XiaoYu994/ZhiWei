@@ -35,15 +35,19 @@ public class VectorSearchService {
     private final MilvusServiceClient milvusClient;
     private final EmbeddingService embeddingService;
     private final Gson gson = new Gson();
-    public List<SearchResultDTO> search(String query,Long limit) {
-        log.info("开始搜索相似文档, 查询: {}, limit: {}", query, limit);
+    public List<SearchResultDTO> search(String query, Long limit) {
+        return search(query, limit, null);
+    }
+
+    public List<SearchResultDTO> search(String query, Long limit, String filterExpr) {
+        log.info("开始搜索相似文档, 查询: {}, limit: {}, filter: {}", query, limit, filterExpr);
 
         try {
             // 1. 生成向量
             final List<Float> queryVector = embeddingService.generateEmbedding(query);
 
-            // 2. 构建搜索参数 通向量通过了标准化，使用内积等同于余弦相似度。适合语义搜索。
-            final SearchParam searchParam = SearchParam.newBuilder()
+            // 2. 构建搜索参数
+            SearchParam.Builder builder = SearchParam.newBuilder()
                     .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
                     .withMetricType(MetricType.IP)
                     .withLimit(limit)
@@ -55,8 +59,14 @@ public class VectorSearchService {
                             BizKnowledge.FIELD_METADATA,
                             BizKnowledge.FIELD_SOURCE
                     ))
-                    .withParams("{\"nprobe\":10}") // 在最相似的 10 个桶中找
-                    .build();
+                    .withParams("{\"nprobe\":10}");
+
+            // 注入过滤表达式
+            if (filterExpr != null && !filterExpr.isEmpty()) {
+                builder.withExpr(filterExpr);
+            }
+
+            final SearchParam searchParam = builder.build();
             // 3. 执行搜索
             final R<SearchResults> response = milvusClient.search(searchParam);
 
