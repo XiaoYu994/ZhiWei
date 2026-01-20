@@ -92,12 +92,18 @@ public class VectorIngestionService {
             int end = Math.min(i + BATCHSIZE, totalChunks);
             List<DocumentChunkDTO> subList = chunks.subList(i, end);
             try {
-                // 1. 提取当前批次的文本
-                List<String> chunkTexts = subList.stream()
-                        .map(DocumentChunkDTO::getContent)
+                // 1. 提取当前批次的文本 构建用于 Embedding 的文本 (标题 + 内容)
+                List<String> textsToEmbed = subList.stream()
+                        .map(chunk -> {
+                            // 如果有标题，拼接成 "标题: xxx\n内容: xxx" 的格式
+                            if (chunk.getTitle() != null && !chunk.getTitle().isEmpty()) {
+                                return "标题: " + chunk.getTitle() + "\n内容: " + chunk.getContent();
+                            }
+                            return chunk.getContent();
+                        })
                         .toList();
                 // 2. 向量化
-                final List<List<Float>> vectors = embeddingService.generateEmbedding(chunkTexts);
+                final List<List<Float>> vectors = embeddingService.generateEmbedding(textsToEmbed);
 
                 // 3. 构建当前批次的数据
                 List<BizKnowledge> entities = new ArrayList<>();
