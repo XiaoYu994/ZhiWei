@@ -35,7 +35,21 @@ public class InternalDocsTools implements AgentTools {
             """)
     public String queryInternalDocs(
             @ToolParam(description = "用于检索文档的关键词或问题摘要") String query,
-            @ToolParam(description = "可选：过滤表达式 (Milvus DSL)，例如 source == 'filename.pdf'", required = false) String filter) {
+            @ToolParam(description = """
+                            Milvus 过滤表达式 (DSL)。
+                            元数据字段名为 'source'。
+    
+                            【重要规则】
+                            1. 模糊搜索：必须使用 'like' 和 '%'。
+                               - 正确：source like '%运维%'
+                               - 错误：source contains '运维' (不支持)
+                            2. 文件后缀：
+                               - 找 markdown：source like '%.md'
+                               - 找 txt：source like '%.txt'
+                            3. 逻辑组合：使用 '&&' (例如：source like '%Redis%' && source like '%.md')
+    
+                            如果不确定，请留空。
+    """, required = false) String filter) {
 
         try {
             log.info("Agent 正在调用 RAG 检索服务 问题: {}, 过滤: {}", query, filter);
