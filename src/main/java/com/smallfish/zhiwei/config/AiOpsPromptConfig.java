@@ -1,5 +1,6 @@
 package com.smallfish.zhiwei.config;
 
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,30 @@ public class AiOpsPromptConfig {
 
     @Value("classpath:prompts/executor.st")
     private Resource executorResource;
+
+    @Getter
+    @Value("classpath:prompts/alert_analysis.st")
+    private Resource alertAnalysisResource;
+
+    @Getter
+    @Value("classpath:prompts/ops/format_alert_context.st")
+    private Resource formatAlertContext;
+
+    @Getter
+    @Value("classpath:prompts/ops/format_query_context.st")
+    private Resource formatQueryContext;
+
+    @Getter
+    @Value("classpath:prompts/ops/phase_execute.st")
+    private Resource phaseExecute;
+
+    @Getter
+    @Value("classpath:prompts/ops/phase_plan.st")
+    private Resource phasePlan;
+
+    @Getter
+    @Value("classpath:prompts/ops/phase_review.st")
+    private Resource phaseReview;
 
     public String getSupervisorPrompt() {
         return loadResource(supervisorResource);
